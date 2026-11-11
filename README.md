@@ -1,5 +1,9 @@
 # SlicerWebSub-workers
 
+<p align="center">
+  <img src="docs/images/banner.png" alt="Slicer WebSub Banner" width="100%">
+</p>
+
 Standalone Hub **workers** (evidence creators / inference products).
 
 ## Layout
@@ -11,27 +15,9 @@ Standalone Hub **workers** (evidence creators / inference products).
 | `runtime/` | Shared runtime helpers |
 | `<product>/` | One folder per product at repo root |
 
-## Setup
-
-```bash
-pip install -r requirements.txt
-pip install -e ../SlicerWebSub/WebSubInterface/python_client
-```
-
-## Run
-
-```bash
-# terminal A — hub
-python ../SlicerWebSub/WebSubInterface/hub/hub.py --port 2018
-
-# terminal B — worker
-python dental_segmentator/dental_segmentator.py --local
-python total_segmentator/total_segmentator.py --local
-```
-
 ## WebSub workers
 
-Workers in this repository connect inference containers to the hub over a websocket. A worker receives instructions to process a dataset with specific options, downloads the data (from PACS or from the viewer over the hub), runs inference, and returns results to the viewer. That lets users see results without archiving them to PACS first. Workers can run on a local machine (only the hub needs a public domain), avoiding cloud GPU leasing expenses.
+Workers in this repository connect inference containers to the hub. A worker receives instructions to process a dataset with specific options, downloads the data (from PACS or from the viewer over the hub), runs inference, and returns results to the viewer. That lets users see results without archiving them to PACS first. Workers can run on a local machine (only the hub needs a public domain), avoiding cloud GPU leasing expenses.
 
 Workers subscribe to user topics for status-request and dicom/nifti events. In the example below, Dental Segmentator sends binary results back to the user through the hub.
 
@@ -66,6 +52,27 @@ For high availability deployment a hot standby configuration can be used. The �
 The hub provides a test mock auth endpoint that assigns a user when none is provided. For public web applications that do not need user authentication but want to use the workers, the mock endpoints provide the required functionality.
 
 Since the workers are not on the internet, you will get shared keys for the auth server. The hub can use domain name certificates.
+
+
+
+## Setup
+
+```bash
+pip install -r requirements.txt
+pip install -e ../SlicerWebSub/WebSubInterface/python_client
+```
+
+## Run
+
+```bash
+# terminal A — hub
+python ../SlicerWebSub/WebSubInterface/hub/hub.py --port 2018
+
+# terminal B — worker
+python dental_segmentator/dental_segmentator.py --local
+python total_segmentator/total_segmentator.py --local
+```
+
 
 ## Python client usage
 
