@@ -213,7 +213,7 @@ function buildOrganization() {
       },
     ],
     active: true,
-    name: "Slicer Hub",
+    name: "Slicer WebSub",
     telecom: [
       {
         system: "url",
@@ -371,7 +371,7 @@ function buildDevice(algo) {
     property: properties,
     owner: {
       reference: "Organization/SlicerHub",
-      display: "Slicer Hub",
+      display: "Slicer WebSub",
     },
   };
 

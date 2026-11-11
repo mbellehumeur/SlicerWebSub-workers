@@ -8,7 +8,7 @@ with your conversion, CSV preparation, inference, and result publishing code.
 
 Framework: `worker.py` (shared with other service providers).
 
-## Slicer Hub setup
+## Slicer WebSub setup
 
 In **Service Providers**, add or edit a row:
 

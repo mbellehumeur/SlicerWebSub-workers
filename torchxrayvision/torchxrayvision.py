@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """TorchXRayVision Hub service provider — Slicer onMessage + standalone CLI.
 
-Slicer Slicer Hub (Service Providers): point the onMessage script path at this file.
+Slicer Slicer WebSub (Service Providers): point the onMessage script path at this file.
 
 Standalone (plain Python, no Slicer UI) from ``WebSubInterface/``:
 

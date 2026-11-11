@@ -13,7 +13,7 @@
     }
   ],
   "active": true,
-  "name": "Slicer Hub",
+  "name": "Slicer WebSub",
   "telecom": [
     {
       "system": "url",

@@ -15,7 +15,7 @@ Vendored beside the stub (unused for now):
 
 Framework: `worker.py` (shared with other service providers).
 
-## Slicer Hub setup
+## Slicer WebSub setup
 
 In **Service Providers**, add or edit a row:
 

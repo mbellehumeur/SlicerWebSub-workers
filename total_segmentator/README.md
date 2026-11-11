@@ -15,7 +15,7 @@ python total_segmentator/total_segmentator.py --local
 
 The CLI reuses the same job body as the Slicer **onMessage** path (`dicom-send` / `nifti-send` → status-update → result publish). Prefer the `TotalSegmentator` console script (including user `Scripts` dirs) or `PythonSlicer`; otherwise `python -m totalsegmentator.bin.TotalSegmentator` (not `-m totalsegmentator` — that package has no `__main__`). GPU/CUDA follows whichever Python runs the CLI. DICOM SEG output (`-ot dicom_seg`) requires **`highdicom`** in that same environment.
 
-## Slicer Hub setup
+## Slicer WebSub setup
 
 In **Service Providers**, add or edit a row:
 

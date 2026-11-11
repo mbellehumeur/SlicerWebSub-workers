@@ -21,7 +21,7 @@ python torchxrayvision/torchxrayvision.py --local
 
 `--local` connects to `http://127.0.0.1:2018`. Omit it to use the default cloud hub.
 
-## Slicer Hub setup
+## Slicer WebSub setup
 
 In **Service Providers**, add or edit a row:
 

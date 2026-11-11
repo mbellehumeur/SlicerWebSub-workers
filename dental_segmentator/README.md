@@ -52,7 +52,7 @@ $env:DENTAL_SEG_MODEL_PATH = "C:\Users\marti\models\dental"
 $env:DENTAL_SEG_DEVICE = "cuda"
 ```
 
-## Slicer Hub setup
+## Slicer WebSub setup
 
 In **Service Providers**, add or edit a row:
 

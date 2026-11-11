@@ -7,7 +7,7 @@ The shipped script (`neuro_seg.py`) is a **stub**: it downloads the NIfTI file, 
 
 Framework: `worker.py` (shared with other service providers).
 
-## Slicer Hub setup
+## Slicer WebSub setup
 
 In **Service Providers**, add or edit a row:
 
