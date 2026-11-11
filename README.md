@@ -1,7 +1,7 @@
 # SlicerWebSub-workers
 
 <p align="center">
-  <img src="docs/images/banner.png" alt="Slicer WebSub Banner" width="100%">
+  <img src="docs/images/banner.jpg" alt="Slicer WebSub Banner" width="100%">
 </p>
 
 Standalone Hub **workers** (evidence creators / inference products).
