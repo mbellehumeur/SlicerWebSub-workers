@@ -12,8 +12,10 @@ Standalone Hub **workers** (evidence creators / inference products).
 |------|------|
 | `worker.py` | Shared Hub worker framework (`run_sync`, handlers) |
 | `hub_presets.py` | Hub endpoint presets |
-| `runtime/` | Shared runtime helpers |
+| `runtime/` | Shared runtime helpers (incl. `result_cache.py`) |
+| `python_client/` | Vendored Hub `hub-client` package |
 | `<product>/` | One folder per product at repo root |
+| `/var/lib/websub-workers/` | Host runtime: `models/`, `jobs/`, `results/` |
 
 ## WebSub workers
 
@@ -57,10 +59,23 @@ Since the workers are not on the internet, you will get shared keys for the auth
 
 ## Setup
 
+Host layout (runtime dirs under `/var/lib/websub-workers`), Docker, and NVIDIA
+Container Toolkit: see **[docs/install.md](docs/install.md)**. Create the
+runtime directories with:
+
 ```bash
-pip install -r requirements.txt
-pip install -e ../SlicerWebSub/WebSubInterface/python_client
+./scripts/setup_runtime_dirs.sh
 ```
+
+Python packages (use a venv on Ubuntu 24.04+/26.04 — system pip is PEP 668 managed):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+`requirements.txt` installs the in-repo Hub client (`./python_client`).
 
 ## Run
 
@@ -76,11 +91,8 @@ python total_segmentator/total_segmentator.py --local
 
 ## Python client usage
 
-The shared Python package lives in the sibling SlicerWebSub repo:
-
-```bash
-pip install -e ../SlicerWebSub/WebSubInterface/python_client
-```
+The Hub client is vendored at [`python_client/`](python_client/) (package `hub-client`).
+It is installed via `requirements.txt` (`pip install -e ./python_client`).
 
 Minimal example against a local hub on port 2018:
 
@@ -133,4 +145,5 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-More detail (live smokes, dataType tokens): [python_client README](https://github.com/mbellehumeur/SlicerWebSub/blob/main/WebSubInterface/python_client/README.md).
+More detail (dataType tokens): [`python_client/README.md`](python_client/README.md).
+Upstream source: [SlicerWebSub python_client](https://github.com/mbellehumeur/SlicerWebSub/tree/main/WebSubInterface/python_client).

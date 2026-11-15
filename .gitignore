@@ -15,7 +15,10 @@ dist/
 
 # Secrets / local env
 .env
+.venv/
+venv/
 
 # OS
 .DS_Store
 Thumbs.db
+mhub/docker/build/

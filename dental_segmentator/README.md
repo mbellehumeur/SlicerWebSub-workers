@@ -20,6 +20,8 @@ Framework: `worker.py` (shared with other service providers).
 
 ## Dependencies
 
+**Host worker** ([`dental_segmentator.py`](dental_segmentator.py)):
+
 ```bash
 pip install aiohttp nnunetv2
 # CUDA torch (required for GPU). Plain `pip install torch` installs a +cpu build
@@ -30,11 +32,29 @@ pip install torch --index-url https://download.pytorch.org/whl/cu128
 CUDA recommended; CPU works but is slow (set `DENTAL_SEG_DEVICE=cpu`). A `+cpu`
 torch build ignores the GPU — check `python -c "import torch; print(torch.__version__, torch.cuda.is_available())"`.
 
+**Docker worker** ([`dental_segmentator_docker.py`](dental_segmentator_docker.py)) — preferred on
+RTX 50 / Blackwell: inference runs in `websub/dental_segmentator:cu128` (PyTorch
+cu128). Host only needs Docker + the Hub venv (`aiohttp`, etc.), not host torch.
+
+```bash
+docker build -t websub/dental_segmentator:cu128 \
+  -f dental_segmentator/docker/Dockerfile dental_segmentator/docker
+```
+
+See [`docker/README.md`](docker/README.md). Weights still land under
+`/var/lib/websub-workers/models/dental_segmentator` on first run (not baked into
+the image).
+
 ## Model weights
 
 By default the service provider **auto-downloads** [Dataset111_453CT_v100.zip](https://github.com/gaudot/SlicerDentalSegmentator/releases/download/v1.0.0-alpha/Dataset111_453CT_v100.zip) (~220 MB) on the first job and caches it under:
 
-`~/.slicer-hub/models/dental_segmentator`
+`/var/lib/websub-workers/models/dental_segmentator`
+
+Completed labelmaps are stored under
+`/var/lib/websub-workers/results/DENTAL_SEG/` (keyed by series UID or NIfTI
+content hash + model + options). A repeat request with the same key republishes
+the cached NIfTI and skips nnU-Net. See [docs/install.md](../docs/install.md).
 
 Optional override — point at a pre-unzipped folder that contains `dataset.json` and/or `fold_0` (Git Bash rewrites `/path/...`; use a real Windows path):
 
@@ -62,20 +82,26 @@ In **Service Providers**, add or edit a row:
 | Version | `1.0` |
 | Description | e.g. dental CT/CBCT segmentation |
 | Hub | `SLICER-HUB` or `SLICER-HUB-CLOUD` |
-| onMessage script | `dental_segmentator/dental_segmentator.py` |
+| onMessage script | `dental_segmentator/dental_segmentator.py` (host) **or** `dental_segmentator/dental_segmentator_docker.py` (cu128 container) |
 
 Click **Connect**. Subscribed events: `dicom-send`, `nifti-send`, `status-request`.
 
 ## Run standalone (no Slicer UI)
 
-From `WebSubInterface/`:
+From the workers repo root (venv activated):
 
 ```bash
-# optional: DENTAL_SEG_MODEL_PATH / DENTAL_SEG_DEVICE
+# Host nnU-Net (needs cu128 torch on the host for RTX 50)
 python dental_segmentator/dental_segmentator.py --local
+
+# Docker cu128 image (build image first; see docker/README.md)
+python dental_segmentator/dental_segmentator_docker.py --local
 ```
 
 Default hub is **SLICER-HUB-CLOUD**; `--local` uses `http://127.0.0.1:2018`.
+
+Docker worker env: `DENTAL_SEG_DOCKER_IMAGE`, `DENTAL_SEG_DEVICE`, `DENTAL_SEG_GPUS`,
+`DENTAL_SEG_DOCKER_SHM_SIZE` (default `8g`; needed for nnU-Net shared memory).
 
 ## End-to-end job flow (nifti-send)
 

@@ -54,7 +54,7 @@ for _extra in (
     _SCRIPT_DIR,
     _WORKERS_ROOT,
     _WORKERS_ROOT / "runtime",
-    _WORKERS_ROOT.parent / "SlicerWebSub" / "WebSubInterface" / "python_client" / "src",
+    _WORKERS_ROOT / "python_client" / "src",
 ):
     _extra_str = str(_extra)
     if _extra.is_dir() and _extra_str not in sys.path:

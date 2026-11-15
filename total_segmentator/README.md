@@ -4,12 +4,25 @@
 
 From `WebSubInterface/` with a hub already listening (e.g. `--port 2018`):
 
+**Host worker** (needs TotalSegmentator + CUDA torch on the host for RTX 50):
+
 ```bash
 pip install -e python_client
 pip install aiohttp
 # Inference deps are operator-managed (TotalSegmentator / torch / highdicom), or use PythonSlicer on PATH
 python total_segmentator/total_segmentator.py --local
 ```
+
+**Docker worker** (preferred on RTX 50 / Blackwell) — inference in `websub/totalsegmentator:cu128`:
+
+```bash
+docker build -t websub/totalsegmentator:cu128 \
+  -f total_segmentator/docker/Dockerfile total_segmentator/docker
+python total_segmentator/total_segmentator_docker.py --local
+```
+
+See [`docker/README.md`](docker/README.md). Weights download into
+`/var/lib/websub-workers/models/totalsegmentator` on first run (not baked into the image).
 
 `--local` connects to `http://127.0.0.1:2018`. Omit it to use the default cloud hub.
 
@@ -25,7 +38,7 @@ In **Service Providers**, add or edit a row:
 | Version | `1.0` |
 | Description | e.g. Total Segmentator CT segmentation |
 | Hub | `SLICER-HUB` or `SLICER-HUB-CLOUD` |
-| onMessage script | `total_segmentator/total_segmentator.py` |
+| onMessage script | `total_segmentator/total_segmentator.py` (host) **or** `total_segmentator/total_segmentator_docker.py` (cu128 container) |
 
 Click **Connect**. The subscriber name (`TOTALSEG-XXXXXX`) appears only in the **hub admin portal**. Hub events subscribed for `TOTALSEG`: `dicom-send`, `nifti-send`, `status-request`.
 

@@ -17,12 +17,16 @@ On inbound dicom-send: status error (convert to NIfTI first / use nifti-send).
 
 Model weights (Dataset111): if ``DENTAL_SEG_MODEL_PATH`` is unset, the script
 downloads and caches ``Dataset111_453CT_v100.zip`` under
-``~/.slicer-hub/models/dental_segmentator`` on first job. Override with the
-env var to use a pre-unzipped weights folder (``dataset.json`` / ``fold_0``).
+``/var/lib/websub-workers/models/dental_segmentator`` on first job. Override
+with the env var to use a pre-unzipped weights folder
+(``dataset.json`` / ``fold_0``).
+
+Completed segmentations are stored under
+``/var/lib/websub-workers/results/DENTAL_SEG/...`` and republished on cache hit.
 
 Upstream: https://github.com/gaudot/SlicerDentalSegmentator
 
-See ``worker.py`` and ``dental_segmentator-readme.md``.
+See ``worker.py`` and ``dental_segmentator/README.md``.
 """
 
 from __future__ import annotations
@@ -46,12 +50,18 @@ for _extra in (
     _SCRIPT_DIR,
     _WORKERS_ROOT,
     _WORKERS_ROOT / "runtime",
-    _WORKERS_ROOT.parent / "SlicerWebSub" / "WebSubInterface" / "python_client" / "src",
+    _WORKERS_ROOT / "python_client" / "src",
 ):
     _extra_str = str(_extra)
     if _extra.is_dir() and _extra_str not in sys.path:
         sys.path.insert(0, _extra_str)
 
+from result_cache import (  # noqa: E402
+    lookup_complete,
+    models_dir,
+    resolve_series_key,
+    store_complete,
+)
 from worker import (  # noqa: E402
     ServiceProviderConfig,
     ServiceProviderContext,
@@ -64,6 +74,7 @@ LOGGER = logging.getLogger("DENTAL_SEG")
 PRODUCT_NAME = "DENTAL_SEG"
 FINAL_STATUS_LINE = "Segmentation complete"
 CASE_ID = "dental"
+MODEL_ID = "dental_segmentator"
 MODEL_PATH_ENV = "DENTAL_SEG_MODEL_PATH"
 DEVICE_ENV = "DENTAL_SEG_DEVICE"
 WEIGHTS_ZIP_URL = (
@@ -74,8 +85,12 @@ WEIGHTS_ZIP_NAME = "Dataset111_453CT_v100.zip"
 _MODEL_ENSURE_LOCK = threading.Lock()
 
 
+def _inference_options() -> Dict[str, Any]:
+    return {"model": MODEL_ID}
+
+
 def _default_model_cache_dir() -> Path:
-    return Path.home() / ".slicer-hub" / "models" / "dental_segmentator"
+    return models_dir() / MODEL_ID
 
 
 def _cache_looks_like_model(root: Path) -> bool:
@@ -575,6 +590,33 @@ def on_nifti_send(
 
     LOGGER.info("DENTAL_SEG: input NIfTI %s", nifti_path)
     job_dir = input_dir.parent
+    options = _inference_options()
+    series_key = resolve_series_key(
+        input_dir, message, primary_nifti=nifti_path
+    )
+    LOGGER.info(
+        "DENTAL_SEG: cache key kind=%s value=%s model=%s",
+        series_key.kind,
+        series_key.value,
+        MODEL_ID,
+    )
+
+    hit = lookup_complete(PRODUCT_NAME, series_key, MODEL_ID, options)
+    if hit is not None:
+        result_path = hit.output_files[0]
+        _publish_to_requester(ctx, message, "Using cached result")
+        LOGGER.info("DENTAL_SEG: cache hit %s", hit.root)
+        try:
+            _publish_result_nifti_sync(ctx, topic, result_path)
+        except Exception as exc:
+            _publish_to_requester(
+                ctx, message, f"ERROR: publish nifti-send failed: {exc}"
+            )
+            LOGGER.exception("DENTAL_SEG: cached publish failed")
+            return
+        _publish_to_requester(ctx, message, FINAL_STATUS_LINE)
+        LOGGER.info("DENTAL_SEG: job complete (cached) result=%s", result_path)
+        return
 
     def _status_line(text: str) -> None:
         # Keep requester log readable — only forward short progress-ish lines.
@@ -610,6 +652,18 @@ def on_nifti_send(
         )
         LOGGER.exception("DENTAL_SEG: inference failed")
         return
+
+    try:
+        store_complete(
+            PRODUCT_NAME,
+            series_key,
+            MODEL_ID,
+            options,
+            output_files=[result_path],
+            publish_as="nifti-send",
+        )
+    except Exception:
+        LOGGER.exception("DENTAL_SEG: failed to store result cache")
 
     _publish_to_requester(ctx, message, "Publishing result…")
     try:

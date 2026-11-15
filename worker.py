@@ -17,9 +17,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
-import re
 import sys
-import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -77,19 +75,17 @@ def format_connect_failure(exc: BaseException) -> str:
 
 
 def _ensure_hub_imports() -> None:
-    """Add workers root, runtime, and sibling Hub python_client (no Slicer)."""
+    """Add workers root, runtime, and in-repo Hub python_client (no Slicer)."""
     workers_root = Path(__file__).resolve().parent
     candidates = [
         workers_root,
         workers_root / "runtime",
+        workers_root / "python_client" / "src",
     ]
     env = __import__("os").environ.get("HUB_PYTHON_CLIENT_ROOT", "").strip()
     if env:
         candidates.append(Path(env) / "src")
         candidates.append(Path(env))
-    # Sibling: pw46/SlicerWebSub/WebSubInterface/python_client
-    sibling = workers_root.parent / "SlicerWebSub" / "WebSubInterface" / "python_client" / "src"
-    candidates.append(sibling)
     for extra in candidates:
         extra_str = str(extra)
         if extra.is_dir() and extra_str not in sys.path:
@@ -283,19 +279,10 @@ class ServiceProviderContext:
         return manifest_path
 
 
-def _safe_topic_dir_name(topic: str) -> str:
-    safe = re.sub(r"[^\w.\-]+", "_", topic.strip())
-    return safe or "topic"
-
-
 def _allocate_job_input_dir(product_name: str, topic: str) -> Path:
-    stamp = int(time.time() * 1000)
-    job_dir = (
-        Path(tempfile.gettempdir())
-        / "hub-rs"
-        / _safe_topic_dir_name(product_name)
-        / f"{_safe_topic_dir_name(topic)}-{stamp}"
-    )
+    from result_cache import job_scratch_dir
+
+    job_dir = job_scratch_dir(product_name, topic)
     job_input = job_dir / "input"
     job_input.mkdir(parents=True, exist_ok=True)
     return job_input

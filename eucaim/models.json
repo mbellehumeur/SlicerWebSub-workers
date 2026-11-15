@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "source": "https://github.com/MIC-DKFZ/nnunet-eucaim-docker",
+  "models": [
+    {
+      "id": "abdominal_organ_segmentation",
+      "title": "Abdominal organ segmentation",
+      "modality": "CT",
+      "bodyPart": "Abdomen",
+      "description": "nnU-Net abdominal organ segmentation (EUCAIM Docker).",
+      "image": "harbor.eucaim.cancerimage.eu/processing-tools/nnunet-abdominal-organ-segmentation:1.0.0"
+    },
+    {
+      "id": "brain_tumour_pet",
+      "title": "Brain tumour PET",
+      "modality": "PT",
+      "bodyPart": "Brain",
+      "description": "nnU-Net brain tumour segmentation on PET (EUCAIM Docker).",
+      "image": "harbor.eucaim.cancerimage.eu/processing-tools/nnunet-brain-tumour-pet:1.0.0"
+    },
+    {
+      "id": "colon_cancer",
+      "title": "Colon cancer",
+      "modality": "CT",
+      "bodyPart": "Abdomen",
+      "description": "nnU-Net colon cancer segmentation (EUCAIM Docker).",
+      "image": "harbor.eucaim.cancerimage.eu/processing-tools/nnunet-colon-cancer:1.0.0"
+    },
+    {
+      "id": "hippocampus_segmentation",
+      "title": "Hippocampus segmentation",
+      "modality": "MR",
+      "bodyPart": "Brain",
+      "description": "nnU-Net hippocampus segmentation (EUCAIM Docker).",
+      "image": "harbor.eucaim.cancerimage.eu/processing-tools/nnunet-hippocampus-segmentation:1.0.0"
+    },
+    {
+      "id": "kidney_tumour",
+      "title": "Kidney tumour",
+      "modality": "CT",
+      "bodyPart": "Kidney",
+      "description": "nnU-Net kidney tumour segmentation (EUCAIM Docker).",
+      "image": "harbor.eucaim.cancerimage.eu/processing-tools/nnunet-kidney-tumour:1.0.0"
+    },
+    {
+      "id": "liver_tumour",
+      "title": "Liver tumour",
+      "modality": "CT",
+      "bodyPart": "Liver",
+      "description": "nnU-Net liver tumour segmentation (EUCAIM Docker).",
+      "image": "harbor.eucaim.cancerimage.eu/processing-tools/nnunet-liver-tumour:1.0.0"
+    },
+    {
+      "id": "pancreas_tumour",
+      "title": "Pancreas tumour",
+      "modality": "CT",
+      "bodyPart": "Abdomen",
+      "description": "nnU-Net pancreas tumour segmentation (EUCAIM Docker).",
+      "image": "harbor.eucaim.cancerimage.eu/processing-tools/nnunet-pancreas-tumour:1.0.0"
+    }
+  ]
+}

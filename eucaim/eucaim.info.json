@@ -1,0 +1,12 @@
+{
+  "id": "eucaim",
+  "product": "EUCAIM",
+  "title": "EUCAIM nnU-Net",
+  "location": "Heidelberg, Germany",
+  "summary": "MIC-DKFZ EUCAIM nnU-Net Docker tasks — DICOM series in, DICOM SEG out.",
+  "githubUrl": "https://github.com/MIC-DKFZ/nnunet-eucaim-docker",
+  "websiteUrl": "https://cancerimage.eu/",
+  "hubEvent": "dicom-send",
+  "enabled": true,
+  "iconUrl": "https://github.com/MIC-DKFZ.png"
+}

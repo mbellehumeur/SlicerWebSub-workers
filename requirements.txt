@@ -1,2 +1,3 @@
--e ../python_client
+-e ./python_client
 aiohttp>=3.9
+pydicom>=2.4
