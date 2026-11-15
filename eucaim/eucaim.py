@@ -45,6 +45,7 @@ for _extra in (
 
 from docker_runner import (  # noqa: E402
     DEFAULT_GPUS,
+    canonicalize_model_id,
     collect_outputs,
     log_output_tree,
     resolve_image_tag,
@@ -124,30 +125,33 @@ def _context_str(ctx: Mapping[str, Any], *keys: str) -> Optional[str]:
 
 
 def _parse_models_list(message: Mapping[str, Any]) -> List[str]:
-    """Return ordered model ids from ``context.models`` and/or ``context.model``."""
+    """Return ordered canonical model ids from ``context.models`` / ``context.model``."""
     ctx = _event_context(message)
-    models: List[str] = []
+    requested: List[str] = []
     raw_list = ctx.get("models")
     if raw_list is None:
         raw_list = ctx.get("Models")
     if isinstance(raw_list, list):
         for entry in raw_list:
             if isinstance(entry, str) and entry.strip():
-                models.append(entry.strip())
+                requested.append(entry.strip())
             elif isinstance(entry, dict):
                 name = _context_str(entry, "model", "id", "name", "modelId")
                 if name:
-                    models.append(name)
+                    requested.append(name)
     singular = _context_str(ctx, "model", "Model", "modelId", "model_id")
-    if singular and singular not in models:
-        models.append(singular)
-    if not models:
+    if singular and singular not in requested:
+        requested.append(singular)
+    if not requested:
         raise ValueError(
             "missing event.context.models (array) or event.context.model "
             '(e.g. ["liver_tumour"] or "hippocampus_segmentation")'
         )
-    for model in models:
-        validate_model(model)
+    models: List[str] = []
+    for name in requested:
+        canonical = canonicalize_model_id(name)
+        if canonical not in models:
+            models.append(canonical)
     return models
 
 

@@ -58,14 +58,26 @@ def load_models_catalog() -> Dict[str, dict]:
     return out
 
 
+def canonicalize_model_id(model_name: str) -> str:
+    """Map a requested model name to the catalog id (accepts ``-`` aliases)."""
+    return str(validate_model(model_name)["id"]).strip()
+
+
 def validate_model(model_name: str) -> dict:
-    """Return model metadata or raise ValueError if unknown."""
+    """Return model metadata or raise ValueError if unknown.
+
+    Accepts catalog ids (``liver_tumour``) and hyphen aliases
+    (``liver-tumour``) used by older client pickers.
+    """
     name = (model_name or "").strip()
     if not name:
         raise ValueError("model name is empty")
-    model = load_models_catalog().get(name)
+    catalog = load_models_catalog()
+    model = catalog.get(name)
+    if model is None and "-" in name:
+        model = catalog.get(name.replace("-", "_"))
     if not model:
-        known = ", ".join(sorted(load_models_catalog()))
+        known = ", ".join(sorted(catalog))
         raise ValueError(f"unknown EUCAIM model: {name} (known: {known})")
     return model
 
