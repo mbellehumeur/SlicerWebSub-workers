@@ -108,12 +108,11 @@ Check GPU access inside a container (adjust the CUDA image tag if the pull fails
 docker run --rm --gpus all nvidia/cuda:12.6.0-base-ubuntu24.04 nvidia-smi
 ```
 
-**RTX 50-series / Blackwell:** published `mhubai/*` and EUCAIM Harbor images
-(CUDA 11.8) do not include CUDA kernels for these GPUs. The MHUB and EUCAIM
-workers detect compute capability ≥ 12.0 via `nvidia-smi` and run models on
-**CPU** unless you set `MHUB_FORCE_GPU=1` / `EUCAIM_FORCE_GPU=1` (only after
-rebuilding images with a Blackwell-capable stack). See
-[`mhub/README.md`](../mhub/README.md) and [`eucaim/README.md`](../eucaim/README.md).
+**RTX 50-series / Blackwell:** published `mhubai/*` images (older CUDA) do not
+include kernels for these GPUs. The MHUB worker falls back to CPU unless you
+build local `*:cu128` tags or set `MHUB_FORCE_GPU=1`. EUCAIM uses local-only
+`websub/eucaim-*:cu128` builds (PyTorch cu128) and keeps `--gpus` on Blackwell.
+See [`mhub/README.md`](../mhub/README.md) and [`eucaim/README.md`](../eucaim/README.md).
 
 For Dental Segmentator / TotalSegmentator / Vox2SegLAM on this GPU, build the
 cu128 images and use the Docker workers
@@ -126,28 +125,40 @@ cu128 images and use the Docker workers
 [`total_segmentator/docker/README.md`](../total_segmentator/docker/README.md),
 and [`vox2seglam/docker/README.md`](../vox2seglam/docker/README.md).
 
+For **DICOM ↔ NIfTI / DICOM SEG** conversion shared across workers, build the
+CPU tools sidecar once:
+
+```bash
+docker build -t websub/tools:cpu \
+  -f tools/docker/Dockerfile tools/docker
+```
+
+Override with `WEBSUB_TOOLS_DOCKER_IMAGE`. Host helpers live in
+[`runtime/tools_runner.py`](../runtime/tools_runner.py); see
+[`tools/docker/README.md`](../tools/docker/README.md). Vox2SegLAM uses this
+image for `dicom-send` in and SEG out.
+
 For **MHub** models on Blackwell, optionally build **local-only**
 `websub/mhub-base:cu128` and `websub/mhub-<model>:cu128` (do **not** push to a
 registry). The MHUB worker prefers those tags when present; otherwise it pulls
 `mhubai/<model>:latest` and falls back to CPU. See
 [`mhub/docker/README.md`](../mhub/docker/README.md).
 
-For **EUCAIM** models, pull Harbor tags (or retag as
-`websub/eucaim-<model>:1.0.0`) via [`eucaim/docker/pull_or_build.sh`](../eucaim/docker/pull_or_build.sh).
-Layers stay under `/var/lib/docker`. See
-[`eucaim/docker/README.md`](../eucaim/docker/README.md).
+For **EUCAIM** models, build local cu128 images (no Harbor) via
+[`eucaim/docker/build_cu128.sh`](../eucaim/docker/build_cu128.sh). Layers stay
+under `/var/lib/docker`. See [`eucaim/docker/README.md`](../eucaim/docker/README.md).
 
-## 4. Smoke checks (no large mHub / EUCAIM pulls)
+## 4. Smoke checks (no large mHub / EUCAIM builds)
 
 ```bash
 docker --version
 python3 mhub/MHubSkill/scripts/mhub_helper.py info
-python3 -c "from pathlib import Path; import sys; sys.path.insert(0,'eucaim'); from docker_runner import load_models_catalog, validate_model; print(sorted(load_models_catalog())); validate_model('liver_tumour')"
+python3 -c "import sys; sys.path.insert(0,'eucaim'); from docker_runner import load_models_catalog, validate_model; print(sorted(load_models_catalog())); validate_model('liver_tumour')"
 ```
 
-Do **not** pull large `mhubai/<model>:latest` or EUCAIM Harbor images until you
-intentionally cache a model. Those layers land under `/var/lib/docker`; model
-weight caches for workers should use `/var/lib/websub-workers/models/`.
+Do **not** pull large `mhubai/<model>:latest` or build all EUCAIM cu128 images
+until you intentionally cache a model. Those layers land under `/var/lib/docker`;
+model weight caches for workers should use `/var/lib/websub-workers/models/`.
 
 ## 5. Python deps (workers)
 

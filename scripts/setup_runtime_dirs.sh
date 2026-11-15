@@ -8,6 +8,7 @@ RUNTIME_ROOT="${WEBSUB_WORKERS_RUNTIME_ROOT:-/var/lib/websub-workers}"
 MODELS_DIR="${RUNTIME_ROOT}/models"
 JOBS_DIR="${RUNTIME_ROOT}/jobs"
 RESULTS_DIR="${RUNTIME_ROOT}/results"
+CONTROL_DIR="${RUNTIME_ROOT}/control"
 
 # Prefer the user who invoked sudo; fall back to the current user.
 OWNER="${SUDO_USER:-${USER:-$(id -un)}}"
@@ -19,7 +20,7 @@ fi
 echo "Runtime root: ${RUNTIME_ROOT}"
 echo "Owner:        ${OWNER}"
 
-sudo mkdir -p "${MODELS_DIR}" "${JOBS_DIR}" "${RESULTS_DIR}"
+sudo mkdir -p "${MODELS_DIR}" "${JOBS_DIR}" "${RESULTS_DIR}" "${CONTROL_DIR}"
 sudo chown -R "${OWNER}:${OWNER}" "${RUNTIME_ROOT}"
 
 echo
@@ -29,3 +30,4 @@ echo
 echo "Done. Models:  ${MODELS_DIR}"
 echo "      Jobs:    ${JOBS_DIR}"
 echo "      Results: ${RESULTS_DIR}"
+echo "      Control: ${CONTROL_DIR}"

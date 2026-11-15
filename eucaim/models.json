@@ -8,7 +8,7 @@
       "modality": "CT",
       "bodyPart": "Abdomen",
       "description": "nnU-Net abdominal organ segmentation (EUCAIM Docker).",
-      "image": "harbor.eucaim.cancerimage.eu/processing-tools/nnunet-abdominal-organ-segmentation:1.0.0"
+      "image": "websub/eucaim-abdominal_organ_segmentation:cu128"
     },
     {
       "id": "brain_tumour_pet",
@@ -16,7 +16,7 @@
       "modality": "PT",
       "bodyPart": "Brain",
       "description": "nnU-Net brain tumour segmentation on PET (EUCAIM Docker).",
-      "image": "harbor.eucaim.cancerimage.eu/processing-tools/nnunet-brain-tumour-pet:1.0.0"
+      "image": "websub/eucaim-brain_tumour_pet:cu128"
     },
     {
       "id": "colon_cancer",
@@ -24,7 +24,7 @@
       "modality": "CT",
       "bodyPart": "Abdomen",
       "description": "nnU-Net colon cancer segmentation (EUCAIM Docker).",
-      "image": "harbor.eucaim.cancerimage.eu/processing-tools/nnunet-colon-cancer:1.0.0"
+      "image": "websub/eucaim-colon_cancer:cu128"
     },
     {
       "id": "hippocampus_segmentation",
@@ -32,7 +32,7 @@
       "modality": "MR",
       "bodyPart": "Brain",
       "description": "nnU-Net hippocampus segmentation (EUCAIM Docker).",
-      "image": "harbor.eucaim.cancerimage.eu/processing-tools/nnunet-hippocampus-segmentation:1.0.0"
+      "image": "websub/eucaim-hippocampus_segmentation:cu128"
     },
     {
       "id": "kidney_tumour",
@@ -40,7 +40,7 @@
       "modality": "CT",
       "bodyPart": "Kidney",
       "description": "nnU-Net kidney tumour segmentation (EUCAIM Docker).",
-      "image": "harbor.eucaim.cancerimage.eu/processing-tools/nnunet-kidney-tumour:1.0.0"
+      "image": "websub/eucaim-kidney_tumour:cu128"
     },
     {
       "id": "liver_tumour",
@@ -48,7 +48,7 @@
       "modality": "CT",
       "bodyPart": "Liver",
       "description": "nnU-Net liver tumour segmentation (EUCAIM Docker).",
-      "image": "harbor.eucaim.cancerimage.eu/processing-tools/nnunet-liver-tumour:1.0.0"
+      "image": "websub/eucaim-liver_tumour:cu128"
     },
     {
       "id": "pancreas_tumour",
@@ -56,7 +56,7 @@
       "modality": "CT",
       "bodyPart": "Abdomen",
       "description": "nnU-Net pancreas tumour segmentation (EUCAIM Docker).",
-      "image": "harbor.eucaim.cancerimage.eu/processing-tools/nnunet-pancreas-tumour:1.0.0"
+      "image": "websub/eucaim-pancreas_tumour:cu128"
     }
   ]
 }

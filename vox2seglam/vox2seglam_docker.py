@@ -4,10 +4,12 @@
 Same product as ``vox2seglam.py``, but runs inference in
 ``websub/vox2seglam:cu128``.
 
-Build the image once (from repo root)::
+Build images once (from repo root)::
 
     docker build -t websub/vox2seglam:cu128 \\
       -f vox2seglam/docker/Dockerfile vox2seglam/docker
+    docker build -t websub/tools:cpu \\
+      -f tools/docker/Dockerfile tools/docker
 
 Then::
 
@@ -16,6 +18,7 @@ Then::
 
 Weights download on first container run into
 ``/var/lib/websub-workers/models/vox2seglam`` (``VOX2SEGLAM_ASSETS``).
+DICOM in / SEG out uses the shared ``websub/tools:cpu`` sidecar.
 
 Env:
   VOX2SEGLAM_DOCKER_IMAGE    — override image tag
@@ -23,6 +26,7 @@ Env:
   VOX2SEGLAM_GPUS            — Docker --gpus value (default all)
   VOX2SEGLAM_DOCKER_SHM_SIZE — Docker --shm-size (default 8g)
   VOX2SEGLAM_TASK            — subcortical (default) | full-brain
+  WEBSUB_TOOLS_DOCKER_IMAGE  — override tools sidecar tag
 
 Point the Service Provider onMessage at this script for GPU Docker inference.
 """
@@ -75,7 +79,7 @@ if __name__ == "__main__":
     run_sync(
         ServiceProviderConfig(
             product_name=v2s.PRODUCT_NAME,
-            events=["nifti-send", "status-request"],
+            events=["dicom-send", "nifti-send", "status-request"],
         ),
         v2s.HANDLERS,
     )

@@ -1,9 +1,8 @@
 """Host GPU compatibility for EUCAIM Docker images.
 
-Published Harbor EUCAIM task images use CUDA 11.8 / older PyTorch builds that
-lack kernels for NVIDIA Blackwell (compute capability 12.0+, e.g. RTX
-50-series). On those hosts the worker should skip ``--gpus`` and run on CPU
-unless ``EUCAIM_FORCE_GPU`` is set.
+Upstream CUDA 11.8 / cu118 EUCAIM images lack kernels for NVIDIA Blackwell
+(compute capability 12.0+, e.g. RTX 50-series). Local ``*:cu128`` rebuilds are
+Blackwell-capable and skip CPU fallback (same pattern as MHUB).
 """
 
 from __future__ import annotations
@@ -17,7 +16,7 @@ from typing import List, Optional, Tuple
 
 LOGGER = logging.getLogger("EUCAIM.gpu")
 
-# Blackwell consumer GPUs (sm_120) and newer — harbor CUDA 11.8 images lack kernels.
+# Blackwell consumer GPUs (sm_120) and newer — need torch cu128.
 MIN_INCOMPATIBLE_COMPUTE = (12, 0)
 
 
@@ -94,7 +93,7 @@ def list_host_gpus() -> Tuple[GpuInfo, ...]:
 def eucaim_images_incompatible_gpus(
     gpus: Optional[Tuple[GpuInfo, ...]] = None,
 ) -> Tuple[GpuInfo, ...]:
-    """GPUs whose compute capability exceeds what published EUCAIM images support."""
+    """GPUs whose compute capability exceeds what non-cu128 EUCAIM images support."""
     if gpus is None:
         gpus = list_host_gpus()
     return tuple(
@@ -102,26 +101,33 @@ def eucaim_images_incompatible_gpus(
     )
 
 
-def should_force_cpu_for_eucaim(*, image_tag: Optional[str] = None) -> bool:
-    """True when host GPU is incompatible with published Harbor EUCAIM images.
+def is_cu128_image_tag(tag: Optional[str]) -> bool:
+    """True for local Blackwell rebuilds (``*:cu128``), which skip CPU fallback."""
+    text = (tag or "").strip().lower()
+    return bool(text) and text.endswith(":cu128")
 
-    ``image_tag`` is accepted for API symmetry with MHUB; v1 has no cu128
-    rebuild exemption (local ``websub/eucaim-*:1.0.0`` tags are still CUDA 11.8
-    retags unless rebuilt separately).
+
+def should_force_cpu_for_eucaim(*, image_tag: Optional[str] = None) -> bool:
+    """True when host GPU is incompatible with the image that will run.
+
+    Local ``websub/eucaim-*:cu128`` rebuilds are Blackwell-capable — never force
+    CPU for those tags.
     """
-    del image_tag
+    if is_cu128_image_tag(image_tag):
+        return False
     return bool(eucaim_images_incompatible_gpus())
 
 
 def cpu_fallback_reason(*, image_tag: Optional[str] = None) -> str:
     """Short human-facing reason for status-update / logs."""
-    del image_tag
+    if is_cu128_image_tag(image_tag):
+        return ""
     bad = eucaim_images_incompatible_gpus()
     if not bad:
         return ""
     parts = [f"{g.name} (sm_{g.compute_cap_str})" for g in bad]
     return (
-        "GPU incompatible with published EUCAIM images ("
+        "GPU incompatible with non-cu128 EUCAIM images ("
         + "; ".join(parts)
         + "); running on CPU"
     )

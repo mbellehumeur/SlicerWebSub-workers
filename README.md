@@ -15,7 +15,8 @@ Standalone Hub **workers** (evidence creators / inference products).
 | `runtime/` | Shared runtime helpers (incl. `result_cache.py`) |
 | `python_client/` | Vendored Hub `hub-client` package |
 | `<product>/` | One folder per product at repo root |
-| `/var/lib/websub-workers/` | Host runtime: `models/`, `jobs/`, `results/` |
+| `control/` | Localhost control panel (start / stop / status / logs) |
+| `/var/lib/websub-workers/` | Host runtime: `models/`, `jobs/`, `results/`, `control/` |
 
 ## WebSub workers
 
@@ -87,6 +88,17 @@ python ../SlicerWebSub/WebSubInterface/hub/hub.py --port 2018
 python dental_segmentator/dental_segmentator.py --local
 python total_segmentator/total_segmentator.py --local
 ```
+
+### Control panel
+
+Localhost UI to list products, start/stop workers (Local or Cloud hub), and tail logs:
+
+```bash
+python -m control
+# → http://127.0.0.1:8765
+```
+
+Binds to `127.0.0.1` by default (no auth). Process state and `worker.log` files live under `/var/lib/websub-workers/control/` (or `$WEBSUB_WORKERS_RUNTIME_ROOT/control/`).
 
 
 ## Python client usage

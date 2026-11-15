@@ -42,9 +42,11 @@ docker run --rm --gpus all --shm-size=8g \
 ```
 
 Outputs include `*_seg.nii.gz` (label map on the scan grid), Slicer markups
-`*.mrk.json`, and `landmarks.csv`. The Hub worker publishes the seg NIfTI only.
+`*.mrk.json`, and `landmarks.csv`. The Hub worker publishes the seg NIfTI
+(and DICOM SEG via `websub/tools:cpu` when the job arrived as `dicom-send`).
 
 ## Hub worker
 
 Use [`../vox2seglam_docker.py`](../vox2seglam_docker.py) as the Service
-Provider onMessage script (product `VOX2SEGLAM`).
+Provider onMessage script (product `VOX2SEGLAM`). Also build
+[`../../tools/docker`](../../tools/docker) (`websub/tools:cpu`) for DICOM I/O.

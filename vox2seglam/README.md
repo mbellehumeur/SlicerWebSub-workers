@@ -7,7 +7,10 @@ Inference runs in Docker (`websub/vox2seglam:cu128`, PyTorch **cu128** for
 Blackwell / RTX 50). Weights are **not** in the image; they download into
 `/var/lib/websub-workers/models/vox2seglam` on first run.
 
-## Build image
+DICOM conversion uses the shared CPU sidecar `websub/tools:cpu`
+([`tools/`](../tools/), [`runtime/tools_runner.py`](../runtime/tools_runner.py)).
+
+## Build images
 
 From the workers repo root:
 
@@ -15,9 +18,14 @@ From the workers repo root:
 docker build -t websub/vox2seglam:cu128 \
   -f vox2seglam/docker/Dockerfile \
   vox2seglam/docker
+
+docker build -t websub/tools:cpu \
+  -f tools/docker/Dockerfile \
+  tools/docker
 ```
 
-See [`docker/README.md`](docker/README.md).
+See [`docker/README.md`](docker/README.md) and
+[`tools/docker/README.md`](../tools/docker/README.md).
 
 ## Run (Hub worker)
 
@@ -35,14 +43,17 @@ Omit `--local` for the default cloud hub.
 | Version | `1.0` |
 | onMessage script | `vox2seglam/vox2seglam_docker.py` |
 
-Subscribed events: `nifti-send`, `status-request`.
+Subscribed events: `dicom-send`, `nifti-send`, `status-request`.
 
 ## Input / output
 
-- **In:** one T1 NIfTI via `nifti-send` (any orientation/resolution; prep is
-  inside the container).
-- **Out:** `*_seg.nii.gz` published back as `nifti-send`. Landmarks
-  (`.mrk.json`, `landmarks.csv`) stay under the job `docker_out/` for debugging.
+| Inbound | Convert | Infer | Publish |
+|---------|---------|-------|---------|
+| `dicom-send` (T1 series) | `websub/tools:cpu` → NIfTI | `vox2seglam:cu128` | `nifti-send` (`*_seg.nii.gz`) **and** `dicom-send` (SEG) |
+| `nifti-send` (T1 NIfTI) | — | same | `nifti-send` only |
+
+- Prep (orientation/resolution) is inside the inference container.
+- Landmarks (`.mrk.json`, `landmarks.csv`) stay under the job `docker_out/` for debugging.
 - Default task: `subcortical` + `--postprocess`. Override with
   `VOX2SEGLAM_TASK=full-brain`.
 
@@ -55,3 +66,4 @@ Subscribed events: `nifti-send`, `status-request`.
 | `VOX2SEGLAM_GPUS` | Docker `--gpus` (default `all`; `none`/`cpu` to omit) |
 | `VOX2SEGLAM_DOCKER_SHM_SIZE` | Docker `--shm-size` (default `8g`) |
 | `VOX2SEGLAM_TASK` | `subcortical` (default) or `full-brain` |
+| `WEBSUB_TOOLS_DOCKER_IMAGE` | Tools sidecar tag (default `websub/tools:cpu`) |

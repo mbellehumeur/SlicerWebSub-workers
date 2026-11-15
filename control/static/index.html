@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Worker control</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Worker control</h1>
+      <p class="tag">Start, stop, and watch Hub workers on this host</p>
+    </div>
+    <div class="top-actions">
+      <label class="hub-default">
+        Default hub
+        <select id="hub-default" aria-label="Default hub target">
+          <option value="local">Local (:2018)</option>
+          <option value="cloud" selected>Cloud</option>
+        </select>
+      </label>
+      <button type="button" id="refresh" class="btn ghost">Refresh</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="error" class="banner error" hidden></div>
+    <div id="products" class="products" aria-live="polite"></div>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

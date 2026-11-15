@@ -233,7 +233,7 @@ def lookup_complete(
     if meta.get("status") != "complete":
         return None
     publish_as = str(meta.get("publish_as") or "").strip()
-    if publish_as not in ("nifti-send", "dicom-send"):
+    if publish_as not in ("nifti-send", "dicom-send", "status-update"):
         LOGGER.warning("result cache: bad publish_as in %s", meta_path)
         return None
     files_meta = meta.get("files")
@@ -273,8 +273,12 @@ def store_complete(
     publish_as: str,
 ) -> Path:
     """Copy result files into the cache tree and write meta.json (status=complete)."""
-    if publish_as not in ("nifti-send", "dicom-send"):
-        raise ValueError(f"publish_as must be nifti-send or dicom-send, got {publish_as!r}")
+    if publish_as not in ("nifti-send", "dicom-send", "status-update"):
+        raise ValueError(
+            "publish_as must be nifti-send, dicom-send, or status-update, "
+            f"got {publish_as!r}"
+        )
+
     if not output_files:
         raise ValueError("output_files is empty")
 

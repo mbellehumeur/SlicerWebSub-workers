@@ -21,7 +21,7 @@ _MODELS_JSON = _EUCAIM_DIR / "models.json"
 
 DEFAULT_GPUS = "all"
 LOCAL_IMAGE_TEMPLATE_ENV = "EUCAIM_LOCAL_IMAGE_TEMPLATE"
-DEFAULT_LOCAL_IMAGE_TEMPLATE = "websub/eucaim-{model}:1.0.0"
+DEFAULT_LOCAL_IMAGE_TEMPLATE = "websub/eucaim-{model}:cu128"
 
 INPUT_MOUNT = "/home/eucaim/nnUNet_input"
 OUTPUT_MOUNT = "/home/eucaim/nnUNet_output"
@@ -83,16 +83,16 @@ def validate_model(model_name: str) -> dict:
 
 
 def local_image_tag(model: str) -> str:
-    """Local-only tag (``websub/eucaim-<model>:1.0.0`` by default)."""
+    """Local-only tag (``websub/eucaim-<model>:cu128`` by default)."""
+    meta = validate_model(model)
+    model_id = str(meta["id"]).strip()
+    catalog_image = str(meta.get("image") or "").strip()
+    if catalog_image:
+        return catalog_image
     tmpl = (
         os.environ.get(LOCAL_IMAGE_TEMPLATE_ENV) or DEFAULT_LOCAL_IMAGE_TEMPLATE
     ).strip() or DEFAULT_LOCAL_IMAGE_TEMPLATE
-    return tmpl.format(model=(model or "").strip())
-
-
-def official_image_tag(model: str) -> str:
-    meta = validate_model(model)
-    return str(meta["image"]).strip()
+    return tmpl.format(model=model_id)
 
 
 def image_is_local(tag: str) -> bool:
@@ -107,15 +107,8 @@ def image_is_local(tag: str) -> bool:
 
 
 def resolve_image_tag(model: str) -> str:
-    """Return local tag when present; else official harbor tag.
-
-    Never pulls local tags — they are operator-built/retagged and local-only.
-    """
-    validate_model(model)
-    local = local_image_tag(model)
-    if image_is_local(local):
-        return local
-    return official_image_tag(model)
+    """Return the local cu128 catalog tag (never pulls from a registry)."""
+    return local_image_tag(model)
 
 
 def ensure_image(
@@ -123,39 +116,23 @@ def ensure_image(
     *,
     on_status: Optional[StatusFn] = None,
 ) -> str:
-    """Ensure a runnable image is local; prefer local tag, else pull official."""
-    validate_model(model)
-    local = local_image_tag(model)
-    if image_is_local(local):
-        LOGGER.info("EUCAIM using local image: %s", local)
-        if on_status:
-            on_status(f"Using local {local}")
-        return local
-
-    tag = official_image_tag(model)
+    """Ensure the local cu128 image exists; never ``docker pull``."""
+    tag = local_image_tag(model)
     if image_is_local(tag):
-        LOGGER.info("EUCAIM docker image already local: %s", tag)
+        LOGGER.info("EUCAIM using local image: %s", tag)
+        if on_status:
+            on_status(f"Using local {tag}")
         return tag
 
-    msg = f"Pulling {tag}…"
-    LOGGER.info("EUCAIM docker image missing; %s", msg)
+    hint = (
+        f"Docker image {tag} not found. Build locally (no Harbor):\n"
+        f"  ./eucaim/docker/build_cu128.sh {canonicalize_model_id(model)}\n"
+        f"See eucaim/docker/README.md"
+    )
+    LOGGER.error("EUCAIM: %s", hint)
     if on_status:
-        on_status(msg)
-    pull = subprocess.run(["docker", "pull", tag], check=False)
-    if pull.returncode != 0:
-        hint = (
-            f"docker pull failed for {tag}. Build or retag locally "
-            f"(see eucaim/docker/README.md):\n"
-            f"  ./eucaim/docker/pull_or_build.sh {model}\n"
-            f"  # or RETAG_LOCAL=1 after a successful pull"
-        )
-        raise RuntimeError(hint)
-    if not image_is_local(tag):
-        raise RuntimeError(f"docker pull finished but image still missing: {tag}")
-    if on_status:
-        on_status(f"Pulled {tag}")
-    LOGGER.info("EUCAIM docker image ready: %s", tag)
-    return tag
+        on_status(f"ERROR: missing image {tag} — run eucaim/docker/build_cu128.sh")
+    raise RuntimeError(hint)
 
 
 def _populate_series_folder(input_dir: Path, dest_dir: Path) -> int:

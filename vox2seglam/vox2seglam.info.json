@@ -3,11 +3,11 @@
   "product": "VOX2SEGLAM",
   "title": "Vox2SegLAM",
   "location": "Montreal, Canada",
-  "summary": "Joint subcortical segmentation and anatomical landmark detection on T1-weighted brain MRI (Harvard–Oxford Atlas 2.0 protocol).",
+  "summary": "Joint subcortical segmentation and anatomical landmark detection on T1-weighted brain MRI (Harvard–Oxford Atlas 2.0 protocol). Accepts dicom-send or nifti-send; DICOM jobs also publish DICOM SEG.",
   "githubUrl": "https://github.com/Neuro-iX/Vox2SegLAM",
   "websiteUrl": "https://github.com/Neuro-iX/Vox2SegLAM",
   "license": "MIT",
   "licenseUrl": "https://opensource.org/licenses/MIT",
-  "hubEvent": "nifti-send",
+  "hubEvent": "dicom-send",
   "enabled": true
 }

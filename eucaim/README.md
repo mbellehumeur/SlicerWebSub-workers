@@ -2,9 +2,9 @@
 
 Standalone Python service provider for
 [MIC-DKFZ/nnunet-eucaim-docker](https://github.com/MIC-DKFZ/nnunet-eucaim-docker)
-(EUCAIM grant). It receives a study (`dicom-send`), runs a task image from the
-catalog in [`models.json`](models.json), reports progress via `status-update`,
-publishes DICOM SEG results, and ends with `Job complete`.
+(EUCAIM grant). It receives a study (`dicom-send`), runs a **local** task image
+from the catalog in [`models.json`](models.json), reports progress via
+`status-update`, publishes DICOM SEG results, and ends with `Job complete`.
 
 Framework: `worker.py` (shared with other service providers). Results cache:
 [`runtime/result_cache.py`](../runtime/result_cache.py).
@@ -15,16 +15,21 @@ Follow **[docs/install.md](../docs/install.md)**: runtime dirs
 `/var/lib/websub-workers/{models,jobs,results}`, Docker Engine, NVIDIA Container
 Toolkit, and a Python venv with `pip install -r requirements.txt`.
 
-Pre-pull images, or let the worker pull on demand:
+**Harbor is not used.** Build Blackwell-capable images once:
 
 ```bash
-./eucaim/docker/pull_or_build.sh liver_tumour
-# or:
-docker pull harbor.eucaim.cancerimage.eu/processing-tools/nnunet-liver-tumour:1.0.0
+sg docker -c './eucaim/docker/build_cu128.sh'
+# or one model:
+sg docker -c './eucaim/docker/build_cu128.sh liver_tumour'
 ```
 
-Optional local tags (preferred when present): `websub/eucaim-<model>:1.0.0`.
-See [`docker/README.md`](docker/README.md).
+Tags: `websub/eucaim-<model>:cu128`. See [`docker/README.md`](docker/README.md).
+
+Start the control panel (or worker) with Docker group access:
+
+```bash
+sg docker -c 'python -m control'
+```
 
 ## Hub / JS context contract
 
@@ -39,19 +44,19 @@ worker expects these fields on inbound `dicom-send` `event.context`:
 | `gpus` | no | Docker `--gpus` value (default `all`; override with env `EUCAIM_GPUS`). Use `none` / `cpu` / `off` / `false` / `0` to omit `--gpus` (CPU). |
 
 \* Require **`models` and/or `model`**. Ids must exist in [`models.json`](models.json).
-Aliases for singular model: `Model`, `modelId`, `model_id`.
+Aliases for singular model: `Model`, `modelId`, `model_id`. Hyphen aliases
+(e.g. `liver-tumour`) are accepted.
 
 ### GPU / CPU policy
 
-Published EUCAIM harbor images use CUDA **11.8** and do **not** support NVIDIA
-Blackwell (compute capability 12.0+, e.g. RTX 50-series). On those hosts the
-worker probes `nvidia-smi`, status-updates a short reason, and runs **without**
-`--gpus` (CPU).
+Local `websub/eucaim-*:cu128` images use PyTorch cu128 and **keep `--gpus`** on
+NVIDIA Blackwell (e.g. RTX 50-series). Non-cu128 tags (if forced) still fall
+back to CPU on sm_120+.
 
 | Env | Effect |
 |-----|--------|
 | `EUCAIM_GPUS=cpu` (or `none` / `off`) | Always CPU |
-| `EUCAIM_FORCE_GPU=1` | Keep `--gpus` even for harbor images on incompatible cards |
+| `EUCAIM_FORCE_GPU=1` | Keep `--gpus` even for non-cu128 images on incompatible cards |
 
 Probe helper: [`gpu_compat.py`](gpu_compat.py).
 
@@ -92,19 +97,17 @@ cached files and skips Docker.
 ## Catalog (source of truth)
 
 [`models.json`](models.json) is the worker validation catalog and the intended
-source for a future client UI (same role as MHub’s `models_summary.json`).
+source for a future client UI.
 
-| id | Harbor image |
-|----|----------------|
-| `abdominal_organ_segmentation` | `…/nnunet-abdominal-organ-segmentation:1.0.0` |
-| `brain_tumour_pet` | `…/nnunet-brain-tumour-pet:1.0.0` |
-| `colon_cancer` | `…/nnunet-colon-cancer:1.0.0` |
-| `hippocampus_segmentation` | `…/nnunet-hippocampus-segmentation:1.0.0` |
-| `kidney_tumour` | `…/nnunet-kidney-tumour:1.0.0` |
-| `liver_tumour` | `…/nnunet-liver-tumour:1.0.0` |
-| `pancreas_tumour` | `…/nnunet-pancreas-tumour:1.0.0` |
-
-Prefix: `harbor.eucaim.cancerimage.eu/processing-tools/`.
+| id | Local image |
+|----|-------------|
+| `abdominal_organ_segmentation` | `websub/eucaim-abdominal_organ_segmentation:cu128` |
+| `brain_tumour_pet` | `websub/eucaim-brain_tumour_pet:cu128` |
+| `colon_cancer` | `websub/eucaim-colon_cancer:cu128` |
+| `hippocampus_segmentation` | `websub/eucaim-hippocampus_segmentation:cu128` |
+| `kidney_tumour` | `websub/eucaim-kidney_tumour:cu128` |
+| `liver_tumour` | `websub/eucaim-liver_tumour:cu128` |
+| `pancreas_tumour` | `websub/eucaim-pancreas_tumour:cu128` |
 
 ## Client (other repo)
 
@@ -125,15 +128,17 @@ In **Service Providers**, add or edit a row:
 | Version | `1.0` |
 | Description | e.g. EUCAIM nnU-Net tasks |
 | Hub | `SLICER-HUB` or `SLICER-HUB-CLOUD` |
-| onMessage script | `eucaim/eucaim.py` |
+| onMessage script | `eucaim/eucaim_docker.py` |
+
+Prefer starting via the control panel: `sg docker -c 'python -m control'`.
 
 ## Run standalone (no Slicer UI)
 
-From the workers repo root (venv activated):
+From the workers repo root (venv activated, docker group):
 
 ```bash
-python eucaim/eucaim.py
-python eucaim/eucaim.py --local
+sg docker -c 'python eucaim/eucaim_docker.py'
+sg docker -c 'python eucaim/eucaim_docker.py --local'
 ```
 
 Default hub is **SLICER-HUB-CLOUD**; `--local` uses `http://127.0.0.1:2018`.
