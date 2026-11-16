@@ -44,4 +44,4 @@ docker run --rm \
 ## Used by
 
 - [`vox2seglam/`](../../vox2seglam/) — DICOM in / SEG out around GPU inference
-- Intended for dental / lung_screening / other NIfTI-native workers later
+- Intended for dental / other NIfTI-native workers later

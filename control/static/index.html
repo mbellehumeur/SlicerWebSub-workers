@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="slicerlive">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,12 +7,12 @@
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <header class="top">
-    <div class="brand">
-      <h1>Worker control</h1>
-      <p class="tag">Start, stop, and watch Hub workers on this host</p>
+  <header class="wl-header">
+    <div class="wl-header-start">
+      <span class="wl-brand">Worker control</span>
+      <span class="wl-tag">Hub workers on this host</span>
     </div>
-    <div class="top-actions">
+    <div class="wl-header-end">
       <label class="hub-default">
         Default hub
         <select id="hub-default" aria-label="Default hub target">
@@ -24,7 +24,7 @@
     </div>
   </header>
 
-  <main>
+  <main class="wl-main">
     <div id="error" class="banner error" hidden></div>
     <div id="products" class="products" aria-live="polite"></div>
   </main>

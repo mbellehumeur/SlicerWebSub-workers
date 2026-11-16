@@ -6,7 +6,7 @@
   },
   "type": "collection",
   "timestamp": "2026-10-07T10:54:17.672Z",
-  "total": 39,
+  "total": 37,
   "entry": [
     {
       "fullUrl": "http://slicerhub.org/fhir/Organization/SlicerHub",
@@ -978,7 +978,7 @@
             "extension": [
               {
                 "url": "citation",
-                "valueString": "Nürnberg, L, Bontempi, D, De Ruysscher, D, et al. Deep learning segmentation of heart substructures in radiotherapy treatment planning. Physica Medica: European journal of medical physics, 2022"
+                "valueString": "N\u00fcrnberg, L, Bontempi, D, De Ruysscher, D, et al. Deep learning segmentation of heart substructures in radiotherapy treatment planning. Physica Medica: European journal of medical physics, 2022"
               }
             ]
           },
@@ -2044,7 +2044,7 @@
               },
               {
                 "url": "citation",
-                "valueString": "J. S. Bosma, A. Saha, M. Hosseinzadeh, I. Slootweg, M. de Rooij, and H. Huisman, \"Semisupervised Learning with Report-guided Pseudo Labels for Deep Learning–based Prostate Cancer Detection Using Biparametric MRI\", Radiology: Artificial Intelligence, 230031, 2023. DOI: 10.1148/ryai.230031"
+                "valueString": "J. S. Bosma, A. Saha, M. Hosseinzadeh, I. Slootweg, M. de Rooij, and H. Huisman, \"Semisupervised Learning with Report-guided Pseudo Labels for Deep Learning\u2013based Prostate Cancer Detection Using Biparametric MRI\", Radiology: Artificial Intelligence, 230031, 2023. DOI: 10.1148/ryai.230031"
               }
             ]
           },
@@ -2611,7 +2611,7 @@
             "extension": [
               {
                 "url": "citation",
-                "valueString": "Bándi P, Balkenhol M, van Ginneken B, van der Laak J, Litjens G. 2019. Resolution-agnostic tissue segmentation in whole-slide histopathology images with convolutional neural networks. PeerJ 7:e8242"
+                "valueString": "B\u00e1ndi P, Balkenhol M, van Ginneken B, van der Laak J, Litjens G. 2019. Resolution-agnostic tissue segmentation in whole-slide histopathology images with convolutional neural networks. PeerJ 7:e8242"
               }
             ]
           },
@@ -2899,7 +2899,7 @@
             "extension": [
               {
                 "url": "citation",
-                "valueString": "Lisa C. Adams and Marcus R. Makowski and Günther Engel and Maximilian Rattunde and Felix Busch and Patrick Asbach and Stefan M. Niehues and Shankeeth Vinayahalingam and Bram {van Ginneken} and Geert Litjens and Keno K. Bressem, Prostate158 - An expert-annotated 3T MRI dataset and algorithm for prostate cancer detection"
+                "valueString": "Lisa C. Adams and Marcus R. Makowski and G\u00fcnther Engel and Maximilian Rattunde and Felix Busch and Patrick Asbach and Stefan M. Niehues and Shankeeth Vinayahalingam and Bram {van Ginneken} and Geert Litjens and Keno K. Bressem, Prostate158 - An expert-annotated 3T MRI dataset and algorithm for prostate cancer detection"
               }
             ]
           },
@@ -3041,7 +3041,7 @@
             "extension": [
               {
                 "url": "citation",
-                "valueString": "Hartmut Häntze, Lina Xu, Felix J. Dorfner, Leonhard Donle, Daniel Truhn, Hugo Aerts, Mathias Prokop, Bram van Ginneken, Alessa Hering, Lisa C. Adams, and Keno K. Bressem. MRSegmentator: Robust multi-modality segmentation of 40 classes in MRI and CT sequences. arXiv, 2024."
+                "valueString": "Hartmut H\u00e4ntze, Lina Xu, Felix J. Dorfner, Leonhard Donle, Daniel Truhn, Hugo Aerts, Mathias Prokop, Bram van Ginneken, Alessa Hering, Lisa C. Adams, and Keno K. Bressem. MRSegmentator: Robust multi-modality segmentation of 40 classes in MRI and CT sequences. arXiv, 2024."
               }
             ]
           },
@@ -4035,7 +4035,7 @@
             "extension": [
               {
                 "url": "citation",
-                "valueString": "Finnegan, R.N., Chin, V., Chlap, P. et al. Open-source, fully-automated hybrid cardiac substructure segmentation: development and optimisation. Phys Eng Sci Med 46, 377–393 (2023)."
+                "valueString": "Finnegan, R.N., Chin, V., Chlap, P. et al. Open-source, fully-automated hybrid cardiac substructure segmentation: development and optimisation. Phys Eng Sci Med 46, 377\u2013393 (2023)."
               }
             ]
           },
@@ -4595,7 +4595,7 @@
             "text": "Fully automatic CT/CBCT dental segmentation (maxilla, mandible, upper/lower teeth, mandibular canal)."
           },
           {
-            "text": "Links: https://www.kitware.com/dental-segmentator/ · https://github.com/gaudot/SlicerDentalSegmentator"
+            "text": "Links: https://www.kitware.com/dental-segmentator/ \u00b7 https://github.com/gaudot/SlicerDentalSegmentator"
           }
         ]
       }
@@ -4767,131 +4767,7 @@
             "text": "Foundation model for universal clinical X-ray anatomy segmentation (60 structures) across body regions, views, and acquisition settings. Designed for on-device / local inference."
           },
           {
-            "text": "Links: https://flexray.csail.mit.edu/ · https://github.com/VictorButoi/FleXray"
-          }
-        ]
-      }
-    },
-    {
-      "fullUrl": "http://slicerhub.org/fhir/Device/product-lung",
-      "resource": {
-        "resourceType": "Device",
-        "id": "product-lung",
-        "meta": {
-          "profile": [
-            "http://omi.de/fhir/registry/StructureDefinition/algorithm-device"
-          ]
-        },
-        "extension": [
-          {
-            "url": "http://omi.de/fhir/registry/StructureDefinition/input-parameter-extension",
-            "valueCanonical": "http://slicerhub.org/fhir/StructureDefinition/product-lung-input"
-          },
-          {
-            "url": "http://omi.de/fhir/registry/StructureDefinition/output-parameter-extension",
-            "valueCanonical": "http://slicerhub.org/fhir/StructureDefinition/product-lung-output"
-          }
-        ],
-        "identifier": [
-          {
-            "system": "http://slicerhub.org/fhir/sid/device",
-            "value": "c862f662-188c-4afb-9626-2109efb97b52"
-          }
-        ],
-        "status": "active",
-        "deviceName": [
-          {
-            "name": "Lung Screening",
-            "type": "user-friendly-name"
-          },
-          {
-            "name": "LUNGSCREENING",
-            "type": "model-name"
-          }
-        ],
-        "version": [
-          {
-            "value": "0.1.0"
-          }
-        ],
-        "property": [
-          {
-            "type": {
-              "coding": [
-                {
-                  "system": "http://snomed.info/sct",
-                  "code": "360037004",
-                  "display": "Imaging modality"
-                }
-              ]
-            },
-            "valueCode": [
-              {
-                "coding": [
-                  {
-                    "system": "http://dicom.nema.org/resources/ontology/DCM",
-                    "code": "CT",
-                    "display": "Computed Tomography"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": {
-              "coding": [
-                {
-                  "system": "http://snomed.info/sct",
-                  "code": "410656007",
-                  "display": "Type of service"
-                }
-              ]
-            },
-            "valueCode": [
-              {
-                "coding": [
-                  {
-                    "system": "http://omi.de/fhir/registry/CodeSystem/ai-service-type-codesystem",
-                    "code": "diagnostics",
-                    "display": "Diagnostics"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": {
-              "coding": [
-                {
-                  "system": "http://snomed.info/sct",
-                  "code": "246102003",
-                  "display": "Maturity level"
-                }
-              ]
-            },
-            "valueCode": [
-              {
-                "coding": [
-                  {
-                    "system": "http://omi.de/fhir/registry/CodeSystem/maturity-level-codesystem",
-                    "code": "LVL1",
-                    "display": "LEVEL 1"
-                  }
-                ]
-              }
-            ]
-          }
-        ],
-        "owner": {
-          "reference": "Organization/SlicerHub",
-          "display": "Slicer WebSub"
-        },
-        "note": [
-          {
-            "text": "CT lung screening."
-          },
-          {
-            "text": "Links: https://projectweek.na-mic.org/PW45_2026_Boston/Projects/ExtractingDeepLearningFeaturesFromCtImagesOfTheThoracicRegionForLungCancerApplications/ · https://github.com/rphellan/slicerW45"
+            "text": "Links: https://flexray.csail.mit.edu/ \u00b7 https://github.com/VictorButoi/FleXray"
           }
         ]
       }
@@ -5100,134 +4976,10 @@
         },
         "note": [
           {
-            "text": "Medical Imaging Model Hub — peer-reviewed deep learning models via standardized Docker I/O."
+            "text": "Medical Imaging Model Hub \u2014 peer-reviewed deep learning models via standardized Docker I/O."
           },
           {
-            "text": "Links: https://mhub.ai · https://github.com/MHubAI/"
-          }
-        ]
-      }
-    },
-    {
-      "fullUrl": "http://slicerhub.org/fhir/Device/product-neuro",
-      "resource": {
-        "resourceType": "Device",
-        "id": "product-neuro",
-        "meta": {
-          "profile": [
-            "http://omi.de/fhir/registry/StructureDefinition/algorithm-device"
-          ]
-        },
-        "extension": [
-          {
-            "url": "http://omi.de/fhir/registry/StructureDefinition/input-parameter-extension",
-            "valueCanonical": "http://slicerhub.org/fhir/StructureDefinition/product-neuro-input"
-          },
-          {
-            "url": "http://omi.de/fhir/registry/StructureDefinition/output-parameter-extension",
-            "valueCanonical": "http://slicerhub.org/fhir/StructureDefinition/product-neuro-output"
-          }
-        ],
-        "identifier": [
-          {
-            "system": "http://slicerhub.org/fhir/sid/device",
-            "value": "765b2675-b3b7-4951-847f-268fe3e162d8"
-          }
-        ],
-        "status": "active",
-        "deviceName": [
-          {
-            "name": "Subcortical segmentation",
-            "type": "user-friendly-name"
-          },
-          {
-            "name": "NEURO_SEG",
-            "type": "model-name"
-          }
-        ],
-        "version": [
-          {
-            "value": "0.1.0"
-          }
-        ],
-        "property": [
-          {
-            "type": {
-              "coding": [
-                {
-                  "system": "http://snomed.info/sct",
-                  "code": "360037004",
-                  "display": "Imaging modality"
-                }
-              ]
-            },
-            "valueCode": [
-              {
-                "coding": [
-                  {
-                    "system": "http://dicom.nema.org/resources/ontology/DCM",
-                    "code": "MR",
-                    "display": "Magnetic Resonance"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": {
-              "coding": [
-                {
-                  "system": "http://snomed.info/sct",
-                  "code": "410656007",
-                  "display": "Type of service"
-                }
-              ]
-            },
-            "valueCode": [
-              {
-                "coding": [
-                  {
-                    "system": "http://omi.de/fhir/registry/CodeSystem/ai-service-type-codesystem",
-                    "code": "segmentation",
-                    "display": "Segmentation"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "type": {
-              "coding": [
-                {
-                  "system": "http://snomed.info/sct",
-                  "code": "246102003",
-                  "display": "Maturity level"
-                }
-              ]
-            },
-            "valueCode": [
-              {
-                "coding": [
-                  {
-                    "system": "http://omi.de/fhir/registry/CodeSystem/maturity-level-codesystem",
-                    "code": "LVL1",
-                    "display": "LEVEL 1"
-                  }
-                ]
-              }
-            ]
-          }
-        ],
-        "owner": {
-          "reference": "Organization/SlicerHub",
-          "display": "Slicer WebSub"
-        },
-        "note": [
-          {
-            "text": "Neuro / subcortical segmentation. Improved white and pial surfaces and parcellation (aparc+aseg) from recon-all pipeline (FreeSurfer 7.4.1) through added dataset"
-          },
-          {
-            "text": "Links: https://projectweek.na-mic.org/PW45_2026_Boston/Projects/ReconAllCorrectionScriptBasedOnManualSubcorticalSegmentationFiles/"
+            "text": "Links: https://mhub.ai \u00b7 https://github.com/MHubAI/"
           }
         ]
       }
@@ -5386,7 +5138,7 @@
             "text": "Whole-body CT/MR multi-organ segmentation."
           },
           {
-            "text": "Links: https://totalsegmentator.com/ · https://github.com/wasserth/TotalSegmentator"
+            "text": "Links: https://totalsegmentator.com/ \u00b7 https://github.com/wasserth/TotalSegmentator"
           }
         ]
       }
@@ -5545,7 +5297,7 @@
             "text": "Chest X-ray pathology classification (18 findings) and lung/heart anatomy segmentation."
           },
           {
-            "text": "Links: https://mlmed.org/torchxrayvision/ · https://github.com/mlmed/torchxrayvision"
+            "text": "Links: https://mlmed.org/torchxrayvision/ \u00b7 https://github.com/mlmed/torchxrayvision"
           }
         ]
       }
@@ -5757,7 +5509,7 @@
             "text": "Interactive marker-guided segmentation via SAM ViT-B ONNX encoder/decoder (OHIF Cornerstone AI)."
           },
           {
-            "text": "Links: https://segment-anything.com/ · https://github.com/facebookresearch/segment-anything"
+            "text": "Links: https://segment-anything.com/ \u00b7 https://github.com/facebookresearch/segment-anything"
           }
         ]
       }

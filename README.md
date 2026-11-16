@@ -91,7 +91,7 @@ python total_segmentator/total_segmentator.py --local
 
 ### Control panel
 
-Localhost UI to list products, start/stop workers (Local or Cloud hub), and tail logs:
+UI to list products, start/stop workers (Local or Cloud hub), and tail logs. Styled like the SlicerWebSub-js worklist (SlicerLive theme).
 
 ```bash
 python -m control
@@ -99,6 +99,19 @@ python -m control
 ```
 
 Binds to `127.0.0.1` by default (no auth). Process state and `worker.log` files live under `/var/lib/websub-workers/control/` (or `$WEBSUB_WORKERS_RUNTIME_ROOT/control/`).
+
+#### Start on reboot (systemd)
+
+Unit file: [`control/systemd/websub-worker-control.service`](control/systemd/websub-worker-control.service). Binds `0.0.0.0:8765` (LAN; no auth) and adds `SupplementaryGroups=docker` so Start can talk to Docker without a manual `newgrp`/`sg docker`.
+
+```bash
+sudo cp control/systemd/websub-worker-control.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now websub-worker-control.service
+systemctl status websub-worker-control.service
+```
+
+After enable: `http://<host>:8765` (e.g. `http://192.168.178.52:8765`).
 
 
 ## Python client usage

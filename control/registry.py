@@ -18,8 +18,6 @@ ENTRYPOINTS: Dict[str, Optional[str]] = {
     "totalseg": "total_segmentator/total_segmentator_docker.py",
     "vox2seglam": "vox2seglam/vox2seglam_docker.py",
     "txrv": "torchxrayvision/torchxrayvision_docker.py",
-    "lung": "lung_screening/lung_screening.py",
-    "neuro": "neuro_seg/neuro_seg.py",
     "flexray": None,
 }
 
