@@ -93,6 +93,8 @@ python total_segmentator/total_segmentator.py --local
 
 UI to list products, start/stop workers (Local or Cloud hub), and tail logs. Styled like the SlicerWebSub-js worklist (SlicerLive theme).
 
+![Worker control panel](docs/images/worker_control.png)
+
 ```bash
 python -m control
 # → http://127.0.0.1:8765
