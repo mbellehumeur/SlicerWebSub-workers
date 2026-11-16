@@ -298,9 +298,16 @@ select:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 6px 12px;
   color: var(--wl-fg-dim);
   font-size: 11px;
+}
+
+.log-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .log-view {

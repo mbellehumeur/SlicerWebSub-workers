@@ -12,6 +12,7 @@ dist/
 .idea/
 .vscode/
 *.swp
+AGENTS.md
 
 # Secrets / local env
 .env

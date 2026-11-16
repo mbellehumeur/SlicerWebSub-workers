@@ -135,7 +135,10 @@
       <div class="log-panel" data-role="log-panel" hidden>
         <div class="log-toolbar">
           <span>worker.log</span>
-          <button type="button" class="btn ghost small" data-role="clear-log">Clear view</button>
+          <div class="log-toolbar-actions">
+            <button type="button" class="btn ghost small" data-role="copy-log">Copy</button>
+            <button type="button" class="btn ghost small" data-role="clear-log">Clear log</button>
+          </div>
         </div>
         <pre class="log-view" data-role="log-view"></pre>
       </div>
@@ -195,8 +198,36 @@
       }
     });
 
-    row.querySelector('[data-role="clear-log"]').addEventListener("click", () => {
-      logView.textContent = "";
+    row.querySelector('[data-role="clear-log"]').addEventListener("click", async () => {
+      showError("");
+      try {
+        await api(`/api/products/${encodeURIComponent(product.id)}/logs/clear`, {
+          method: "POST",
+          body: "{}",
+        });
+        logView.textContent = "";
+      } catch (err) {
+        showError(err.message || String(err));
+      }
+    });
+
+    const copyBtn = row.querySelector('[data-role="copy-log"]');
+    copyBtn.addEventListener("click", async () => {
+      showError("");
+      const label = copyBtn.textContent;
+      try {
+        const data = await api(
+          `/api/products/${encodeURIComponent(product.id)}/logs?tail=0`
+        );
+        await navigator.clipboard.writeText(data.text || "");
+        copyBtn.textContent = "Copied";
+      } catch (err) {
+        showError(err.message || String(err));
+        copyBtn.textContent = "Failed";
+      }
+      setTimeout(() => {
+        copyBtn.textContent = label;
+      }, 1200);
     });
 
     return row;

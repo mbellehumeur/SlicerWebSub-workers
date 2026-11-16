@@ -108,6 +108,17 @@ async def api_logs(request: web.Request) -> web.Response:
     return web.json_response({"product_id": product_id, "path": path, "text": text})
 
 
+async def api_logs_clear(request: web.Request) -> web.Response:
+    product_id = request.match_info["id"]
+    product = get_product(product_id)
+    if product is None:
+        return _json_error("Unknown product", 404)
+    path = await asyncio.to_thread(pm.clear_log, product_id)
+    return web.json_response(
+        {"product_id": product_id, "path": path, "cleared": True}
+    )
+
+
 async def api_logs_stream(request: web.Request) -> web.StreamResponse:
     product_id = request.match_info["id"]
     product = get_product(product_id)
@@ -160,6 +171,7 @@ def create_app() -> web.Application:
     app.router.add_post("/api/products/{id}/start", api_start)
     app.router.add_post("/api/products/{id}/stop", api_stop)
     app.router.add_get("/api/products/{id}/logs", api_logs)
+    app.router.add_post("/api/products/{id}/logs/clear", api_logs_clear)
     app.router.add_get("/api/products/{id}/logs/stream", api_logs_stream)
     app.router.add_static("/static/", STATIC_DIR, name="static")
     return app

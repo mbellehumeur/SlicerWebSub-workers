@@ -408,6 +408,14 @@ def log_file_size(product_id: str) -> int:
         return 0
 
 
+def clear_log(product_id: str) -> str:
+    """Truncate ``worker.log`` to empty; create the file if missing."""
+    path = log_path(product_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("", encoding="utf-8")
+    return str(path)
+
+
 def read_log_since(product_id: str, offset: int) -> Tuple[str, int]:
     """Read new log bytes from offset; return (chunk, new_offset)."""
     path = log_path(product_id)
