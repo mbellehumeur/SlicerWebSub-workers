@@ -12,10 +12,16 @@ from typing import Any, Dict, List, Optional
 from aiohttp import web
 
 from . import process_manager as pm
+from .host_metrics import collect_host_metrics
 from .registry import get_product, load_products
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 LOGGER = logging.getLogger("control")
+
+_RUNTIME_DIR = Path(__file__).resolve().parents[1] / "runtime"
+if str(_RUNTIME_DIR) not in __import__("sys").path:
+    __import__("sys").path.insert(0, str(_RUNTIME_DIR))
+from job_stats import collect_stats as collect_job_stats  # noqa: E402
 
 
 def _json_error(message: str, status: int = 400) -> web.Response:
@@ -24,6 +30,16 @@ def _json_error(message: str, status: int = 400) -> web.Response:
 
 async def index(_request: web.Request) -> web.FileResponse:
     return web.FileResponse(STATIC_DIR / "index.html")
+
+
+async def api_metrics(_request: web.Request) -> web.Response:
+    data = await asyncio.to_thread(collect_host_metrics)
+    return web.json_response(data)
+
+
+async def api_stats(_request: web.Request) -> web.Response:
+    data = await asyncio.to_thread(collect_job_stats)
+    return web.json_response(data)
 
 
 async def api_products(_request: web.Request) -> web.Response:
@@ -166,7 +182,10 @@ async def api_logs_stream(request: web.Request) -> web.StreamResponse:
 def create_app() -> web.Application:
     app = web.Application()
     app.router.add_get("/", index)
+    app.router.add_get("/api/metrics", api_metrics)
+    app.router.add_get("/api/stats", api_stats)
     app.router.add_get("/api/products", api_products)
+
     app.router.add_get("/api/products/{id}", api_product_status)
     app.router.add_post("/api/products/{id}/start", api_start)
     app.router.add_post("/api/products/{id}/stop", api_stop)

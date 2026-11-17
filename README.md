@@ -91,7 +91,7 @@ python total_segmentator/total_segmentator.py --local
 
 ### Control panel
 
-UI to list products, start/stop workers (Local or Cloud hub), and tail logs. Styled like the SlicerWebSub-js worklist (SlicerLive theme).
+UI to list products, start/stop workers (Local or Cloud hub), and tail logs. Styled like the SlicerWebSub hub admin portal (3D Slicer theme, light/dark), with host metrics and durable job usage stats (jobs, GB in/out, compute wall time) recorded by the shared worker library.
 
 ![Worker control panel](docs/images/worker_control.png)
 
