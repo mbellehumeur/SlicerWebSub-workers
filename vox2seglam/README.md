@@ -49,11 +49,14 @@ Subscribed events: `dicom-send`, `nifti-send`, `status-request`.
 
 | Inbound | Convert | Infer | Publish |
 |---------|---------|-------|---------|
-| `dicom-send` (T1 series) | `websub/tools:cpu` → NIfTI | `vox2seglam:cu128` | `nifti-send` (`*_seg.nii.gz`) **and** `dicom-send` (SEG) |
-| `nifti-send` (T1 NIfTI) | — | same | `nifti-send` only |
+| `dicom-send` (T1 series) | `websub/tools:cpu` → NIfTI | `vox2seglam:cu128` | `dicom-send` (SEG + landmarks SR) only |
+| `nifti-send` (T1 NIfTI) | — | same | `nifti-send` (`*_seg.nii.gz`) only |
 
+- When `event.context.seriesInstanceUID` matches a complete results-cache entry, `dicom-send` republishes without downloading the series.
 - Prep (orientation/resolution) is inside the inference container.
-- Landmarks (`.mrk.json`, `landmarks.csv`) stay under the job `docker_out/` for debugging.
+- SEG `SegmentLabel` values come from inference `structures.tsv` (`index` → `name`).
+- Landmarks from `landmarks.csv` are encoded as Comprehensive 3D SR
+  (`landmarks.sr.dcm`). Raw `.mrk.json` / CSV stay under job `docker_out/` for debugging.
 - Default task: `subcortical` + `--postprocess`. Override with
   `VOX2SEGLAM_TASK=full-brain`.
 

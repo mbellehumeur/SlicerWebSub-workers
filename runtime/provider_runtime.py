@@ -874,7 +874,10 @@ def record_nifti_send_received(topic: str, byte_length: int) -> Dict[str, Any]:
 
 
 def build_dicom_send_publish_message(
-    topic: str, file_path: str
+    topic: str,
+    file_path: str,
+    *,
+    target_subscriber_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     path = os.path.normpath(file_path)
     if not os.path.isfile(path):
@@ -884,7 +887,7 @@ def build_dicom_send_publish_message(
         raw = dcm_file.read()
 
     file_name = os.path.basename(path)
-    return {
+    message: Dict[str, Any] = {
         "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "id": generate_message_id(),
         "event": {
@@ -902,10 +905,19 @@ def build_dicom_send_publish_message(
             },
         },
     }
+    target = str(target_subscriber_name or "").strip()
+    if target:
+        # Address only the requesting client so peer workers on the same
+        # topic do not ingest this publish as a new inbound job.
+        message["target.subscriber.name"] = target
+    return message
 
 
 def build_nifti_send_publish_message(
-    topic: str, file_path: str
+    topic: str,
+    file_path: str,
+    *,
+    target_subscriber_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     path = os.path.normpath(file_path)
     if not os.path.isfile(path):
@@ -915,7 +927,7 @@ def build_nifti_send_publish_message(
         raw = nifti_file.read()
 
     file_name = os.path.basename(path)
-    return {
+    message: Dict[str, Any] = {
         "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "id": generate_message_id(),
         "event": {
@@ -933,6 +945,10 @@ def build_nifti_send_publish_message(
             },
         },
     }
+    target = str(target_subscriber_name or "").strip()
+    if target:
+        message["target.subscriber.name"] = target
+    return message
 
 
 def send_hub_request_response(
@@ -962,7 +978,13 @@ def send_hub_request_response(
     return True
 
 
-def publish_dicom_send_file(product_name: str, topic: str, file_path: str) -> bool:
+def publish_dicom_send_file(
+    product_name: str,
+    topic: str,
+    file_path: str,
+    *,
+    target_subscriber_name: Optional[str] = None,
+) -> bool:
     """Schedule dicom-send publish on the service provider's hub connection thread."""
     key = (product_name or "").strip()
     connection = _connections.get(key)
@@ -975,7 +997,11 @@ def publish_dicom_send_file(product_name: str, topic: str, file_path: str) -> bo
         return False
 
     try:
-        message = build_dicom_send_publish_message(topic, file_path)
+        message = build_dicom_send_publish_message(
+            topic,
+            file_path,
+            target_subscriber_name=target_subscriber_name,
+        )
     except Exception as exc:
         LOGGER.exception("publish_dicom_send_file build failed: %s", exc)
         return False
@@ -993,7 +1019,13 @@ def publish_dicom_send_file(product_name: str, topic: str, file_path: str) -> bo
     return True
 
 
-def publish_nifti_send_file(product_name: str, topic: str, file_path: str) -> bool:
+def publish_nifti_send_file(
+    product_name: str,
+    topic: str,
+    file_path: str,
+    *,
+    target_subscriber_name: Optional[str] = None,
+) -> bool:
     """Schedule nifti-send publish on the service provider's hub connection thread."""
     key = (product_name or "").strip()
     connection = _connections.get(key)
@@ -1006,7 +1038,11 @@ def publish_nifti_send_file(product_name: str, topic: str, file_path: str) -> bo
         return False
 
     try:
-        message = build_nifti_send_publish_message(topic, file_path)
+        message = build_nifti_send_publish_message(
+            topic,
+            file_path,
+            target_subscriber_name=target_subscriber_name,
+        )
     except Exception as exc:
         LOGGER.exception("publish_nifti_send_file build failed: %s", exc)
         return False

@@ -1,0 +1,24 @@
+[Unit]
+Description=Orchid radiology AI platform (docker compose)
+Documentation=https://github.com/kalsiva/orchid
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=mbellehumeur
+Group=mbellehumeur
+SupplementaryGroups=docker
+WorkingDirectory=/home/mbellehumeur/src/SlicerWebSub-workers
+Environment=HOME=/home/mbellehumeur
+Environment=ORCHID_SRC=/home/mbellehumeur/src/orchid
+Environment=WEBSUB_WORKERS_RUNTIME_ROOT=/var/lib/websub-workers
+Environment=PATH=/usr/bin:/bin
+ExecStart=/home/mbellehumeur/src/SlicerWebSub-workers/orchid/docker/up.sh
+ExecStop=/home/mbellehumeur/src/SlicerWebSub-workers/orchid/docker/down.sh
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

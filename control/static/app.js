@@ -5,6 +5,8 @@
   const hubDefaultEl = document.getElementById("hub-default");
   const refreshBtn = document.getElementById("refresh");
   const colorModeEl = document.getElementById("color-mode");
+  const orchidContainersEl = document.getElementById("orchidContainers");
+  const orchidPlatformSubEl = document.getElementById("orchidPlatformSub");
 
   /** @type {Map<string, EventSource>} */
   const streams = new Map();
@@ -303,6 +305,101 @@
     return row;
   }
 
+  function orchidContainerBadge(container) {
+    const state = String(container.state || "").toLowerCase();
+    const health = String(container.health || "").toLowerCase();
+    if (state === "running" || state === "up") {
+      if (health === "unhealthy") {
+        return '<span class="badge warn">unhealthy</span>';
+      }
+      if (health === "starting") {
+        return '<span class="badge warn">starting</span>';
+      }
+      return '<span class="badge running">running</span>';
+    }
+    if (state === "exited" || state === "dead" || state === "stopped") {
+      return '<span class="badge stopped">stopped</span>';
+    }
+    if (!state) {
+      return '<span class="badge muted">unknown</span>';
+    }
+    return `<span class="badge warn">${escapeHtml(state)}</span>`;
+  }
+
+  function renderOrchidContainer(container) {
+    const row = document.createElement("article");
+    row.className = "row orchid-container-row";
+    const service = container.service || container.name || "service";
+    const subParts = [];
+    if (container.name && container.name !== service) {
+      subParts.push(container.name);
+    }
+    if (container.status) subParts.push(container.status);
+    if (container.ports) subParts.push(container.ports);
+    row.innerHTML = `
+      <div class="row-main">
+        <div class="row-meta">
+          <h2>${escapeHtml(service)}</h2>
+          <p class="sub">${escapeHtml(subParts.join(" · ") || "—")}</p>
+        </div>
+        <div class="row-actions">
+          ${orchidContainerBadge(container)}
+        </div>
+      </div>
+    `;
+    return row;
+  }
+
+  async function refreshOrchid() {
+    if (!orchidContainersEl || !orchidPlatformSubEl) return;
+    try {
+      const data = await api("/api/orchid");
+      const apiUrl = data.api_url || "http://127.0.0.1:8000";
+      const subBits = [];
+      if (data.api_ok) {
+        const aet = data.api && data.api.aet ? data.api.aet : "ORCHID";
+        const dicomPort =
+          data.api && data.api.dicom_port != null ? data.api.dicom_port : "11112";
+        subBits.push(
+          `API <a href="${escapeHtml(apiUrl)}" target="_blank" rel="noopener">${escapeHtml(apiUrl)}</a> ok`
+        );
+        subBits.push(`AE ${escapeHtml(String(aet))} · DICOM :${escapeHtml(String(dicomPort))}`);
+      } else {
+        const err = data.api_error || "unreachable";
+        subBits.push(`API ${escapeHtml(apiUrl)} — ${escapeHtml(err)}`);
+      }
+      if (data.orchid_src) {
+        subBits.push(`src ${escapeHtml(data.orchid_src)}`);
+      }
+      orchidPlatformSubEl.innerHTML = subBits.join(" · ");
+
+      orchidContainersEl.innerHTML = "";
+      if (data.error && !data.compose_ok) {
+        orchidContainersEl.innerHTML = `<p class="empty">${escapeHtml(data.error)}</p>`;
+        return;
+      }
+      const list = data.containers || [];
+      if (!list.length) {
+        orchidContainersEl.innerHTML =
+          '<p class="empty">No Orchid containers running. Start with orchid/docker/up.sh or websub-orchid.service.</p>';
+        return;
+      }
+      for (const container of list) {
+        orchidContainersEl.appendChild(renderOrchidContainer(container));
+      }
+      if (data.error) {
+        const note = document.createElement("p");
+        note.className = "orchid-platform-note";
+        note.textContent = data.error;
+        orchidContainersEl.appendChild(note);
+      }
+    } catch (err) {
+      orchidPlatformSubEl.textContent = err.message || String(err);
+      orchidContainersEl.innerHTML =
+        '<p class="empty">Could not load Orchid status.</p>';
+    }
+  }
+
   async function refresh() {
     showError("");
     try {
@@ -324,30 +421,31 @@
       pollStats();
       if (!list.length) {
         productsEl.innerHTML = '<p class="empty">No products found.</p>';
-        return;
-      }
-      for (const product of list) {
-        const row = renderProduct(product);
-        productsEl.appendChild(row);
-        if (openLogs.has(product.id)) {
-          const panel = row.querySelector('[data-role="log-panel"]');
-          const logView = row.querySelector('[data-role="log-view"]');
-          panel.hidden = false;
-          try {
-            const logData = await api(
-              `/api/products/${encodeURIComponent(product.id)}/logs?tail=200`
-            );
-            logView.textContent = logData.text || "(no log yet)\n";
-            logView.scrollTop = logView.scrollHeight;
-          } catch (_) {
-            /* keep empty */
+      } else {
+        for (const product of list) {
+          const row = renderProduct(product);
+          productsEl.appendChild(row);
+          if (openLogs.has(product.id)) {
+            const panel = row.querySelector('[data-role="log-panel"]');
+            const logView = row.querySelector('[data-role="log-view"]');
+            panel.hidden = false;
+            try {
+              const logData = await api(
+                `/api/products/${encodeURIComponent(product.id)}/logs?tail=200`
+              );
+              logView.textContent = logData.text || "(no log yet)\n";
+              logView.scrollTop = logView.scrollHeight;
+            } catch (_) {
+              /* keep empty */
+            }
+            ensureStream(product.id, logView);
           }
-          ensureStream(product.id, logView);
         }
       }
     } catch (err) {
       showError(err.message || String(err));
     }
+    await refreshOrchid();
   }
 
   const METRICS_URL = "/api/metrics";

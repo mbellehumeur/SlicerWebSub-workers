@@ -129,6 +129,14 @@ def _context_series_instance_uid(message: Mapping[str, Any]) -> Optional[str]:
     return None
 
 
+def series_key_from_message(message: Mapping[str, Any]) -> Optional[SeriesKey]:
+    """Return a series/ key when ``event.context`` has SeriesInstanceUID (no file I/O)."""
+    context_uid = _context_series_instance_uid(message)
+    if not context_uid:
+        return None
+    return SeriesKey(kind="series", value=context_uid)
+
+
 def _iter_candidate_files(input_dir: Path) -> Iterable[Path]:
     if not input_dir.is_dir():
         return

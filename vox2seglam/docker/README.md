@@ -41,9 +41,10 @@ docker run --rm --gpus all --shm-size=8g \
   --postprocess --download --device cuda
 ```
 
-Outputs include `*_seg.nii.gz` (label map on the scan grid), Slicer markups
-`*.mrk.json`, and `landmarks.csv`. The Hub worker publishes the seg NIfTI
-(and DICOM SEG via `websub/tools:cpu` when the job arrived as `dicom-send`).
+Outputs include `*_seg.nii.gz` (label map on the scan grid), `structures.tsv`
+(label names), Slicer markups `*.mrk.json`, and `landmarks.csv`. On Hub
+`dicom-send` jobs, `websub/tools:cpu` turns those into a named DICOM SEG plus
+a landmarks Comprehensive 3D SR.
 
 ## Hub worker
 

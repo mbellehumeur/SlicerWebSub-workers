@@ -39,10 +39,12 @@ for _extra in (
 from result_cache import (  # noqa: E402
     lookup_complete,
     resolve_series_key,
+    series_key_from_message,
     store_complete,
 )
 from tools_runner import (  # noqa: E402
     run_dicom_to_nifti,
+    run_landmarks_to_dicom_sr,
     run_nifti_to_dicom_seg,
 )
 from worker import (  # noqa: E402
@@ -66,12 +68,17 @@ def _task_name() -> str:
 
 
 def _inference_options(*, dicom_out: bool) -> Dict[str, Any]:
-    return {
+    options: Dict[str, Any] = {
         "model": MODEL_ID,
         "task": _task_name(),
         "postprocess": True,
         "dicom_out": bool(dicom_out),
     }
+    if dicom_out:
+        # Invalidate cached SEGs that used generic label_N / lacked landmarks SR.
+        options["seg_meta"] = "structures-tsv-v2"
+        options["sr_meta"] = "landmarks-sr-v3"
+    return options
 
 
 def build_status_response(_ctx: ServiceProviderContext) -> Dict[str, Any]:
@@ -151,6 +158,51 @@ def on_send_download_start(
     )
 
 
+def on_try_cache_before_download(
+    ctx: ServiceProviderContext, message: Dict[str, Any], hub_event: str
+) -> bool:
+    """Skip study download when SeriesInstanceUID already has a complete cache hit."""
+    if hub_event != "dicom-send":
+        return False
+    series_key = series_key_from_message(message)
+    if series_key is None:
+        return False
+    event = message.get("event") or {}
+    topic = (event.get("hub.topic") or "").strip()
+    target_subscriber = str(message.get("subscriber.name") or "").strip() or None
+    if not topic or not target_subscriber:
+        return False
+
+    options = _inference_options(dicom_out=True)
+    hit = lookup_complete(PRODUCT_NAME, series_key, MODEL_ID, options)
+    if hit is None:
+        return False
+
+    _publish_to_requester(ctx, message, "Using cached result")
+    LOGGER.info(
+        "VOX2SEGLAM: pre-download cache hit %s series=%s",
+        hit.root,
+        series_key.value,
+    )
+    try:
+        _publish_outputs_sync(
+            ctx,
+            topic,
+            hit.output_files,
+            hit.publish_as,
+            target_subscriber_name=target_subscriber,
+        )
+    except Exception as exc:
+        _publish_to_requester(
+            ctx, message, f"ERROR: publish cached result failed: {exc}"
+        )
+        LOGGER.exception("VOX2SEGLAM: pre-download cached publish failed")
+        # Still skip download: result exists; republishing failed.
+        return True
+    _publish_to_requester(ctx, message, FINAL_STATUS_LINE)
+    return True
+
+
 def _resolve_input_nifti(input_dir: Path) -> Optional[Path]:
     nifti_files = sorted(input_dir.glob("*.nii*"))
     if not nifti_files:
@@ -158,21 +210,19 @@ def _resolve_input_nifti(input_dir: Path) -> Optional[Path]:
     return nifti_files[0]
 
 
-def _looks_like_dicom_seg(path: Path) -> bool:
-    name = path.name.lower()
-    return name.endswith(".dcm") or name.endswith(".dicom") or ".seg." in name
-
-
-def _looks_like_nifti(path: Path) -> bool:
-    name = path.name.lower()
-    return name.endswith(".nii") or name.endswith(".nii.gz")
-
-
 def _publish_result_nifti_sync(
-    ctx: ServiceProviderContext, topic: str, result_path: Path
+    ctx: ServiceProviderContext,
+    topic: str,
+    result_path: Path,
+    *,
+    target_subscriber_name: Optional[str] = None,
 ) -> None:
     future = asyncio.run_coroutine_threadsafe(
-        ctx.publish_nifti_send(topic, str(result_path)),
+        ctx.publish_nifti_send(
+            topic,
+            str(result_path),
+            target_subscriber_name=target_subscriber_name,
+        ),
         ctx.loop,
     )
     http_status = future.result(timeout=300.0)
@@ -184,10 +234,18 @@ def _publish_result_nifti_sync(
 
 
 def _publish_result_dicom_sync(
-    ctx: ServiceProviderContext, topic: str, result_path: Path
+    ctx: ServiceProviderContext,
+    topic: str,
+    result_path: Path,
+    *,
+    target_subscriber_name: Optional[str] = None,
 ) -> None:
     future = asyncio.run_coroutine_threadsafe(
-        ctx.publish_dicom_send(topic, str(result_path)),
+        ctx.publish_dicom_send(
+            topic,
+            str(result_path),
+            target_subscriber_name=target_subscriber_name,
+        ),
         ctx.loop,
     )
     http_status = future.result(timeout=300.0)
@@ -202,16 +260,27 @@ def _publish_outputs_sync(
     ctx: ServiceProviderContext,
     topic: str,
     files: Sequence[Path],
+    publish_as: str,
+    *,
+    target_subscriber_name: Optional[str] = None,
 ) -> None:
     for path in files:
-        if _looks_like_nifti(path):
-            _publish_result_nifti_sync(ctx, topic, path)
-        elif _looks_like_dicom_seg(path):
-            _publish_result_dicom_sync(ctx, topic, path)
-        else:
-            LOGGER.warning(
-                "VOX2SEGLAM: skip publish of unrecognized artifact %s", path
+        if publish_as == "dicom-send":
+            _publish_result_dicom_sync(
+                ctx,
+                topic,
+                path,
+                target_subscriber_name=target_subscriber_name,
             )
+        elif publish_as == "nifti-send":
+            _publish_result_nifti_sync(
+                ctx,
+                topic,
+                path,
+                target_subscriber_name=target_subscriber_name,
+            )
+        else:
+            raise ValueError(f"unsupported publish_as: {publish_as!r}")
 
 
 def _require_job_routing(
@@ -270,6 +339,7 @@ def _handle_job(
 ) -> None:
     """Shared inference / cache / publish path for nifti-send and dicom-send."""
     dicom_out = inbound_label == "dicom-send"
+    target_subscriber = str(message.get("subscriber.name") or "").strip() or None
     job_dir = input_dir.parent
     output_dir = job_dir / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -290,7 +360,13 @@ def _handle_job(
         _publish_to_requester(ctx, message, "Using cached result")
         LOGGER.info("VOX2SEGLAM: cache hit %s", hit.root)
         try:
-            _publish_outputs_sync(ctx, topic, hit.output_files)
+            _publish_outputs_sync(
+                ctx,
+                topic,
+                hit.output_files,
+                hit.publish_as,
+                target_subscriber_name=target_subscriber,
+            )
         except Exception as exc:
             _publish_to_requester(
                 ctx, message, f"ERROR: publish cached result failed: {exc}"
@@ -327,16 +403,33 @@ def _handle_job(
         )
         return
 
-    output_files: List[Path] = [result_path]
     publish_as = "dicom-send" if dicom_out else "nifti-send"
+    # Match Hub publish format to inbound: DICOM in → SEG/SR only;
+    # NIfTI in → seg NIfTI only. Intermediate *_seg.nii.gz stays on disk
+    # for conversion when dicom_out.
+    output_files: List[Path] = [] if dicom_out else [result_path]
 
     if dicom_out:
         ref = ref_dicom_dir or input_dir
+        docker_out = job_dir / "docker_out"
+        structures_tsv = docker_out / "structures.tsv"
+        landmarks_csv = docker_out / "landmarks.csv"
+        if not structures_tsv.is_file():
+            LOGGER.warning(
+                "VOX2SEGLAM: structures.tsv missing under %s; "
+                "SEG SegmentLabels will fall back to label_N",
+                docker_out,
+            )
+            structures_tsv_arg: Optional[Path] = None
+        else:
+            structures_tsv_arg = structures_tsv
         try:
             seg_dcm = run_nifti_to_dicom_seg(
                 result_path,
                 ref,
                 job_dir,
+                structures_tsv=structures_tsv_arg,
+                algorithm_name="Vox2SegLAM",
                 on_status=_status,
                 log_path=job_dir / "docker_tools.log",
             )
@@ -347,6 +440,31 @@ def _handle_job(
             )
             LOGGER.exception("VOX2SEGLAM: nifti-to-dicom-seg failed")
             return
+
+        if landmarks_csv.is_file():
+            try:
+                sr_dcm = run_landmarks_to_dicom_sr(
+                    landmarks_csv,
+                    ref,
+                    job_dir,
+                    algorithm_name="Vox2SegLAM",
+                    on_status=_status,
+                    log_path=job_dir / "docker_tools.log",
+                )
+                output_files.append(sr_dcm)
+            except Exception as exc:
+                # Landmarks SR is additive; keep SEG on failure.
+                _publish_to_requester(
+                    ctx,
+                    message,
+                    f"WARNING: landmarks SR conversion failed: {exc}",
+                )
+                LOGGER.exception("VOX2SEGLAM: landmarks-to-dicom-sr failed")
+        else:
+            LOGGER.warning(
+                "VOX2SEGLAM: landmarks.csv missing under %s; skipping SR",
+                docker_out,
+            )
 
     try:
         store_complete(
@@ -362,7 +480,13 @@ def _handle_job(
 
     _publish_to_requester(ctx, message, "Publishing result…")
     try:
-        _publish_outputs_sync(ctx, topic, output_files)
+        _publish_outputs_sync(
+            ctx,
+            topic,
+            output_files,
+            publish_as,
+            target_subscriber_name=target_subscriber,
+        )
     except Exception as exc:
         _publish_to_requester(
             ctx, message, f"ERROR: publish result failed: {exc}"
@@ -454,6 +578,7 @@ HANDLERS = ServiceProviderHandlers(
     on_dicom_send=on_dicom_send,
     on_nifti_send=on_nifti_send,
     on_send_download_start=on_send_download_start,
+    on_try_cache_before_download=on_try_cache_before_download,
     build_status_response=build_status_response,
 )
 

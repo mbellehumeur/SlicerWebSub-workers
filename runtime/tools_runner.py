@@ -1,7 +1,7 @@
 """Run shared ``websub/tools:cpu`` conversion sidecars.
 
-Workers call these helpers for DICOM ↔ NIfTI / DICOM-SEG without baking
-conversion deps into product GPU images.
+Workers call these helpers for DICOM ↔ NIfTI / DICOM-SEG / landmarks SR
+without baking conversion deps into product GPU images.
 """
 
 from __future__ import annotations
@@ -192,6 +192,8 @@ def run_nifti_to_dicom_seg(
     ref_dicom_dir: Path,
     job_dir: Path,
     *,
+    structures_tsv: Optional[Path] = None,
+    algorithm_name: str = "websub-tools",
     on_status: Optional[StatusFn] = None,
     log_path: Optional[Path] = None,
 ) -> Path:
@@ -212,6 +214,26 @@ def run_nifti_to_dicom_seg(
     docker_in.mkdir(parents=True)
     _hardlink_or_copy(seg_nifti, docker_in / seg_nifti.name)
     _stage_tree(ref_dicom_dir, docker_in / "reference")
+    cli_args: List[str] = [
+        "nifti-to-dicom-seg",
+        "--seg",
+        f"/data/input/{seg_nifti.name}",
+        "--reference",
+        "/data/input/reference",
+        "--algorithm-name",
+        algorithm_name,
+    ]
+    if structures_tsv is not None:
+        structures_tsv = Path(structures_tsv).resolve()
+        if not structures_tsv.is_file():
+            raise FileNotFoundError(
+                f"structures TSV not found: {structures_tsv}"
+            )
+        _hardlink_or_copy(structures_tsv, docker_in / "structures.tsv")
+        cli_args += [
+            "--structures-tsv",
+            "/data/input/structures.tsv",
+        ]
     if docker_out.exists():
         shutil.rmtree(docker_out)
     docker_out.mkdir(parents=True)
@@ -222,13 +244,7 @@ def run_nifti_to_dicom_seg(
         tag=tag,
         docker_in=docker_in,
         docker_out=docker_out,
-        args=[
-            "nifti-to-dicom-seg",
-            "--seg",
-            f"/data/input/{seg_nifti.name}",
-            "--reference",
-            "/data/input/reference",
-        ],
+        args=cli_args,
         log_path=Path(log_path) if log_path else job_dir / "docker_tools.log",
         on_status=on_status,
     )
@@ -252,4 +268,74 @@ def run_nifti_to_dicom_seg(
     shutil.copy2(produced, dest)
     if on_status:
         on_status(f"DICOM SEG ready: {dest.name}")
+    return dest.resolve()
+
+
+def run_landmarks_to_dicom_sr(
+    landmarks_csv: Path,
+    ref_dicom_dir: Path,
+    job_dir: Path,
+    *,
+    algorithm_name: str = "websub-tools",
+    on_status: Optional[StatusFn] = None,
+    log_path: Optional[Path] = None,
+) -> Path:
+    """Convert landmarks.csv + reference series to ``landmarks.sr.dcm``."""
+    tag = ensure_tools_image(on_status=on_status)
+    job_dir = Path(job_dir).resolve()
+    landmarks_csv = Path(landmarks_csv).resolve()
+    ref_dicom_dir = Path(ref_dicom_dir).resolve()
+    if not landmarks_csv.is_file():
+        raise FileNotFoundError(f"landmarks CSV not found: {landmarks_csv}")
+    if not ref_dicom_dir.is_dir():
+        raise FileNotFoundError(f"reference DICOM dir missing: {ref_dicom_dir}")
+
+    docker_in = job_dir / "tools_in_sr"
+    docker_out = job_dir / "tools_out_sr"
+    if docker_in.exists():
+        shutil.rmtree(docker_in)
+    docker_in.mkdir(parents=True)
+    _hardlink_or_copy(landmarks_csv, docker_in / "landmarks.csv")
+    _stage_tree(ref_dicom_dir, docker_in / "reference")
+    if docker_out.exists():
+        shutil.rmtree(docker_out)
+    docker_out.mkdir(parents=True)
+
+    if on_status:
+        on_status("Converting landmarks to DICOM SR…")
+    _docker_run(
+        tag=tag,
+        docker_in=docker_in,
+        docker_out=docker_out,
+        args=[
+            "landmarks-to-dicom-sr",
+            "--landmarks",
+            "/data/input/landmarks.csv",
+            "--reference",
+            "/data/input/reference",
+            "--algorithm-name",
+            algorithm_name,
+        ],
+        log_path=Path(log_path) if log_path else job_dir / "docker_tools.log",
+        on_status=on_status,
+    )
+
+    produced = docker_out / "landmarks.sr.dcm"
+    if not produced.is_file():
+        dcms = sorted(docker_out.glob("*.dcm")) + sorted(
+            docker_out.glob("*.dicom")
+        )
+        if not dcms:
+            raise RuntimeError(
+                "tools landmarks-to-dicom-sr produced no landmarks.sr.dcm"
+            )
+        produced = dcms[0]
+
+    dest = job_dir / "output" / produced.name
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.exists():
+        dest.unlink()
+    shutil.copy2(produced, dest)
+    if on_status:
+        on_status(f"DICOM SR ready: {dest.name}")
     return dest.resolve()

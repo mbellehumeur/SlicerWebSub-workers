@@ -18,6 +18,7 @@ ENTRYPOINTS: Dict[str, Optional[str]] = {
     "totalseg": "total_segmentator/total_segmentator_docker.py",
     "vox2seglam": "vox2seglam/vox2seglam_docker.py",
     "txrv": "torchxrayvision/torchxrayvision_docker.py",
+    "orchid": "orchid/orchid_websub.py",
     "flexray": None,
 }
 
@@ -116,7 +117,7 @@ def load_products(repo_root: Path = REPO_ROOT) -> List[ProductInfo]:
                 alternate_scripts=alts,
             )
         )
-    products.sort(key=lambda p: (not p.startable, p.title.lower()))
+    products.sort(key=lambda p: p.title.lower())
     return products
 
 

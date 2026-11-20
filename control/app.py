@@ -12,7 +12,9 @@ from typing import Any, Dict, List, Optional
 from aiohttp import web
 
 from . import process_manager as pm
+from .process_manager import restore_desired_workers
 from .host_metrics import collect_host_metrics
+from .orchid_status import collect_orchid_status
 from .registry import get_product, load_products
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -42,6 +44,11 @@ async def api_stats(_request: web.Request) -> web.Response:
     return web.json_response(data)
 
 
+async def api_orchid(_request: web.Request) -> web.Response:
+    data = await asyncio.to_thread(collect_orchid_status)
+    return web.json_response(data)
+
+
 async def api_products(_request: web.Request) -> web.Response:
     products = []
     for product in load_products():
@@ -49,13 +56,8 @@ async def api_products(_request: web.Request) -> web.Response:
         item = product.to_dict()
         item["status"] = st.to_dict()
         products.append(item)
-    # Running first, then startable, then by title
     products.sort(
-        key=lambda p: (
-            not (p.get("status") or {}).get("running"),
-            not p.get("startable", False),
-            str(p.get("title") or p.get("id") or "").lower(),
-        )
+        key=lambda p: str(p.get("title") or p.get("id") or "").lower()
     )
     return web.json_response({"products": products})
 
@@ -179,11 +181,28 @@ async def api_logs_stream(request: web.Request) -> web.StreamResponse:
     return response
 
 
+async def _on_startup(app: web.Application) -> None:
+    LOGGER.info("Restoring workers marked desired_running…")
+    try:
+        results = await asyncio.to_thread(restore_desired_workers)
+    except Exception:
+        LOGGER.exception("Worker restore failed")
+        return
+    started = sum(1 for st in results if st.running and not st.error)
+    LOGGER.info(
+        "Worker restore finished: %d started/already-running of %d desired",
+        started,
+        len(results),
+    )
+
+
 def create_app() -> web.Application:
     app = web.Application()
+    app.on_startup.append(_on_startup)
     app.router.add_get("/", index)
     app.router.add_get("/api/metrics", api_metrics)
     app.router.add_get("/api/stats", api_stats)
+    app.router.add_get("/api/orchid", api_orchid)
     app.router.add_get("/api/products", api_products)
 
     app.router.add_get("/api/products/{id}", api_product_status)

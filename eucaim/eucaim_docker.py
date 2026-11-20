@@ -59,6 +59,7 @@ from gpu_compat import (  # noqa: E402
 from result_cache import (  # noqa: E402
     lookup_complete,
     resolve_series_key,
+    series_key_from_message,
     store_complete,
 )
 from worker import (  # noqa: E402
@@ -239,6 +240,59 @@ def on_send_download_start(
     )
 
 
+def on_try_cache_before_download(
+    ctx: ServiceProviderContext, message: Dict[str, Any], hub_event: str
+) -> bool:
+    """Skip study download when every requested model has a SeriesUID cache hit."""
+    if hub_event != "dicom-send":
+        return False
+    series_key = series_key_from_message(message)
+    if series_key is None:
+        return False
+    event = message.get("event") or {}
+    topic = (event.get("hub.topic") or "").strip()
+    target_subscriber = str(message.get("subscriber.name") or "").strip() or None
+    if not topic or not target_subscriber:
+        return False
+
+    try:
+        models = _parse_models_list(message)
+    except ValueError:
+        return False
+
+    hits = []
+    for model in models:
+        options: Dict[str, Any] = {"model": model}
+        hit = lookup_complete(PRODUCT_NAME, series_key, model, options)
+        if hit is None:
+            return False
+        hits.append((model, hit))
+
+    for model, hit in hits:
+        _publish_to_requester(ctx, message, f"Using cached result ({model})")
+        LOGGER.info(
+            "EUCAIM: pre-download cache hit %s model=%s", hit.root, model
+        )
+        try:
+            _publish_files_sync(
+                ctx,
+                topic,
+                hit.output_files,
+                hit.publish_as,
+                target_subscriber_name=target_subscriber,
+            )
+        except Exception as exc:
+            _publish_to_requester(
+                ctx, message, f"ERROR: publish failed ({model}): {exc}"
+            )
+            LOGGER.exception(
+                "EUCAIM: pre-download cached publish failed model=%s", model
+            )
+            return True
+    _publish_to_requester(ctx, message, FINAL_STATUS_LINE)
+    return True
+
+
 def _require_job_routing(
     ctx: ServiceProviderContext,
     message: Dict[str, Any],
@@ -272,12 +326,18 @@ def _publish_files_sync(
     topic: str,
     files: Sequence[Path],
     publish_as: str,
+    *,
+    target_subscriber_name: Optional[str] = None,
 ) -> None:
     for path in files:
         if publish_as != "dicom-send":
             raise ValueError(f"unsupported publish_as: {publish_as!r}")
         future = asyncio.run_coroutine_threadsafe(
-            ctx.publish_dicom_send(topic, str(path)),
+            ctx.publish_dicom_send(
+                topic,
+                str(path),
+                target_subscriber_name=target_subscriber_name,
+            ),
             ctx.loop,
         )
         http_status = future.result(timeout=300.0)
@@ -343,6 +403,9 @@ def _handle_inbound_send(
             options,
         )
 
+        target_subscriber = (
+            str(message.get("subscriber.name") or "").strip() or None
+        )
         hit = lookup_complete(PRODUCT_NAME, series_key, model, options)
         if hit is not None:
             _publish_to_requester(
@@ -351,7 +414,11 @@ def _handle_inbound_send(
             LOGGER.info("EUCAIM: cache hit %s", hit.root)
             try:
                 _publish_files_sync(
-                    ctx, topic, hit.output_files, hit.publish_as
+                    ctx,
+                    topic,
+                    hit.output_files,
+                    hit.publish_as,
+                    target_subscriber_name=target_subscriber,
                 )
             except Exception as exc:
                 _publish_to_requester(
@@ -426,7 +493,13 @@ def _handle_inbound_send(
             ctx, message, f"Publishing result ({model})…"
         )
         try:
-            _publish_files_sync(ctx, topic, result_files, publish_as)
+            _publish_files_sync(
+                ctx,
+                topic,
+                result_files,
+                publish_as,
+                target_subscriber_name=target_subscriber,
+            )
         except Exception as exc:
             _publish_to_requester(
                 ctx, message, f"ERROR: publish failed ({model}): {exc}"
@@ -463,6 +536,7 @@ def on_dicom_send(
 HANDLERS = ServiceProviderHandlers(
     on_dicom_send=on_dicom_send,
     on_send_download_start=on_send_download_start,
+    on_try_cache_before_download=on_try_cache_before_download,
     build_status_response=build_status_response,
 )
 

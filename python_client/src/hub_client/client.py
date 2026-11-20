@@ -28,7 +28,7 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 import urllib.error
 import urllib.request
 from urllib.parse import urljoin, urlparse, urlunparse
@@ -134,6 +134,15 @@ def is_own_message(
         return False
     from_sub = str(message.get("subscriber.name") or "").strip()
     return bool(from_sub) and from_sub == own
+
+
+def message_subscriber_actor(message: Mapping[str, Any]) -> str:
+    """Return sender actor from ``subscriber.actor`` or ``actor`` (else empty)."""
+    for key in ("subscriber.actor", "actor"):
+        value = message.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
 
 
 def build_hub_request_event(
@@ -2352,6 +2361,8 @@ class SlicerHubClient(HubClient):
             msg["subscriber.name"] = self._session_cfg.subscriber_name
         if msg.get("subscriber.product.name") is None and self._session_cfg.product_name:
             msg["subscriber.product.name"] = self._session_cfg.product_name
+        if msg.get("subscriber.actor") is None and self._session_cfg.actors:
+            msg["subscriber.actor"] = self._session_cfg.actors[0]
 
         event = msg.get("event")
         if isinstance(event, dict) and not event.get("hub.topic"):
@@ -2400,6 +2411,8 @@ class SlicerHubClient(HubClient):
             msg["subscriber.name"] = self._session_cfg.subscriber_name
         if msg.get("subscriber.product.name") is None and self._session_cfg.product_name:
             msg["subscriber.product.name"] = self._session_cfg.product_name
+        if msg.get("subscriber.actor") is None and self._session_cfg.actors:
+            msg["subscriber.actor"] = self._session_cfg.actors[0]
 
         event = msg.get("event")
         if isinstance(event, dict) and not event.get("hub.topic"):

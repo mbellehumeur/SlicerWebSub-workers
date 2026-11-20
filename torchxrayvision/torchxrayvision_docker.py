@@ -107,6 +107,7 @@ HANDLERS = ServiceProviderHandlers(
     on_dicom_send=on_dicom_send,
     on_nifti_send=txrv.on_nifti_send,
     on_send_download_start=txrv.on_send_download_start,
+    on_try_cache_before_download=txrv.on_try_cache_before_download,
     build_status_response=txrv.build_status_response,
 )
 
