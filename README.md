@@ -15,8 +15,9 @@ Standalone Hub **workers** (evidence creators / inference products).
 | `runtime/` | Shared runtime helpers (incl. `result_cache.py`) |
 | `python_client/` | Vendored Hub `hub-client` package |
 | `<product>/` | One folder per product at repo root |
+| `orchid/` | WebSub client for an independently installed [Orchid](https://github.com/kalsiva/orchid) platform |
 | `control/` | Localhost control panel (start / stop / status / logs) |
-| `/var/lib/websub-workers/` | Host runtime: `models/`, `jobs/`, `results/`, `control/` |
+| `/var/lib/websub-workers/` | Host runtime: `models/`, `jobs/`, `results/`, `control/`, `orchid/` |
 
 ## WebSub workers
 
@@ -114,6 +115,8 @@ systemctl status websub-worker-control.service
 ```
 
 After enable: `http://<host>:8765` (e.g. `http://192.168.178.52:8765`).
+
+On boot, systemd starts the control panel; the panel then restarts any workers that were left **running** in the UI (`desired_running` in `/var/lib/websub-workers/control/<id>/meta.json`, same hub as last Start). **Stop** clears that intent so those workers are not restored after reboot. No cron job is required.
 
 
 ## Python client usage

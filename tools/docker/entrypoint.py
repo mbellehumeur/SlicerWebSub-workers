@@ -2,8 +2,9 @@
 """Shared conversion CLI for websub/tools:cpu.
 
 Subcommands:
-  dicom-to-nifti       /data/input (DICOM series) → /data/output/volume.nii.gz
-  nifti-to-dicom-seg   labelmap NIfTI + reference DICOM → SEG
+  dicom-to-nifti         /data/input (DICOM series) → /data/output/volume.nii.gz
+  nifti-to-dicom-seg     labelmap NIfTI + reference DICOM → SEG
+  landmarks-to-dicom-sr  landmarks.csv + reference DICOM → Comprehensive 3D SR
 
 Mounts:
   /data/input   — source files (read-only from host)
@@ -13,12 +14,13 @@ Mounts:
 from __future__ import annotations
 
 import argparse
+import csv
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -268,10 +270,91 @@ def _nifti_labelmap_to_frames(
     return np.asarray(np.rint(arr), dtype=np.uint16).astype(np.uint8)
 
 
+def _load_structures_tsv(path: Path) -> Dict[int, str]:
+    """Map label index → display name from a Vox2SegLAM-style structures.tsv."""
+    mapping: Dict[int, str] = {}
+    with path.open(newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        if reader.fieldnames is None:
+            raise RuntimeError(f"empty structures TSV: {path}")
+        fields = {name.strip().lower(): name for name in reader.fieldnames}
+        index_key = fields.get("index")
+        name_key = fields.get("name")
+        if not index_key or not name_key:
+            raise RuntimeError(
+                f"structures TSV missing index/name columns: {path}"
+            )
+        for row in reader:
+            raw_index = (row.get(index_key) or "").strip()
+            raw_name = (row.get(name_key) or "").strip()
+            if not raw_index or not raw_name:
+                continue
+            try:
+                index = int(raw_index)
+            except ValueError as exc:
+                raise RuntimeError(
+                    f"invalid index {raw_index!r} in {path}"
+                ) from exc
+            if index > 0:
+                mapping[index] = raw_name
+    return mapping
+
+
+def _load_landmarks_csv(
+    path: Path,
+) -> List[Tuple[int, str, float, float, float]]:
+    """Return (id, name, x_mm, y_mm, z_mm) rows from landmarks.csv (LPS mm)."""
+    rows: List[Tuple[int, str, float, float, float]] = []
+    with path.open(newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        if reader.fieldnames is None:
+            raise RuntimeError(f"empty landmarks CSV: {path}")
+        fields = {name.strip().lower(): name for name in reader.fieldnames}
+        id_key = fields.get("landmark_id")
+        name_key = fields.get("landmark_name")
+        x_key = fields.get("x_mm")
+        y_key = fields.get("y_mm")
+        z_key = fields.get("z_mm")
+        missing = [
+            key
+            for key, value in (
+                ("landmark_id", id_key),
+                ("landmark_name", name_key),
+                ("x_mm", x_key),
+                ("y_mm", y_key),
+                ("z_mm", z_key),
+            )
+            if value is None
+        ]
+        if missing:
+            raise RuntimeError(
+                f"landmarks CSV missing columns {missing}: {path}"
+            )
+        assert id_key and name_key and x_key and y_key and z_key
+        for row in reader:
+            try:
+                landmark_id = int((row.get(id_key) or "").strip())
+                name = (row.get(name_key) or "").strip()
+                x_mm = float((row.get(x_key) or "").strip())
+                y_mm = float((row.get(y_key) or "").strip())
+                z_mm = float((row.get(z_key) or "").strip())
+            except ValueError as exc:
+                raise RuntimeError(
+                    f"invalid landmarks row in {path}: {row}"
+                ) from exc
+            if not name:
+                continue
+            rows.append((landmark_id, name, x_mm, y_mm, z_mm))
+    return rows
+
+
 def _cmd_nifti_to_dicom_seg(
     seg_path: Path,
     reference_dir: Path,
     output_dir: Path,
+    *,
+    structures_tsv: Optional[Path] = None,
+    algorithm_name: str = "websub-tools",
 ) -> Path:
     """Write ``segmentation.seg.dcm`` (BINARY DICOM SEG) from a labelmap."""
     import highdicom as hd
@@ -282,6 +365,15 @@ def _cmd_nifti_to_dicom_seg(
     if not reference_dir.is_dir():
         raise FileNotFoundError(f"reference DICOM dir missing: {reference_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    label_names: Dict[int, str] = {}
+    if structures_tsv is not None:
+        if not structures_tsv.is_file():
+            raise FileNotFoundError(
+                f"structures TSV not found: {structures_tsv}"
+            )
+        label_names = _load_structures_tsv(structures_tsv)
+        _log(f"loaded {len(label_names)} structure names from {structures_tsv.name}")
 
     source_images = _load_dicom_series(reference_dir)
     labelmap = _nifti_labelmap_to_frames(seg_path, source_images)
@@ -303,24 +395,31 @@ def _cmd_nifti_to_dicom_seg(
     for i, lab in enumerate(labels):
         mask[..., i] = labelmap == lab
 
+    algo_name = (algorithm_name or "websub-tools").strip() or "websub-tools"
     algorithm_identification = hd.AlgorithmIdentificationSequence(
-        name="websub-tools",
+        name=algo_name,
         version="1.0",
         family=codes.cid7162.ArtificialIntelligence,
     )
 
     descriptions = []
     for i, lab in enumerate(labels):
-        descriptions.append(
-            hd.seg.SegmentDescription(
-                segment_number=i + 1,
-                segment_label=f"label_{lab}",
-                segmented_property_category=codes.cid7150.AnatomicalStructure,
-                segmented_property_type=codes.cid7166.Tissue,
-                algorithm_type=hd.seg.SegmentAlgorithmTypeValues.AUTOMATIC,
-                algorithm_identification=algorithm_identification,
-            )
+        segment_label = label_names.get(lab) or f"label_{lab}"
+        # DICOM SegmentLabel is LO (max 64 chars)
+        if len(segment_label) > 64:
+            segment_label = segment_label[:64]
+        desc = hd.seg.SegmentDescription(
+            segment_number=i + 1,
+            segment_label=segment_label,
+            segmented_property_category=codes.cid7150.AnatomicalStructure,
+            segmented_property_type=codes.cid7166.Tissue,
+            algorithm_type=hd.seg.SegmentAlgorithmTypeValues.AUTOMATIC,
+            algorithm_identification=algorithm_identification,
         )
+        # Slicer Live prefers SegmentDescription; OHIF uses SegmentLabel.
+        # highdicom has no ctor arg for this tag — set it explicitly.
+        desc.SegmentDescription = segment_label
+        descriptions.append(desc)
 
     seg_dataset = hd.seg.Segmentation(
         source_images=list(source_images),
@@ -332,10 +431,10 @@ def _cmd_nifti_to_dicom_seg(
         sop_instance_uid=hd.UID(),
         instance_number=1,
         manufacturer="SlicerWebSub",
-        manufacturer_model_name="websub-tools",
+        manufacturer_model_name=algo_name,
         software_versions="1.0",
         device_serial_number="websub-tools",
-        series_description="Segmentation",
+        series_description=f"{algo_name} Segmentation",
     )
 
     dest = output_dir / "segmentation.seg.dcm"
@@ -344,6 +443,132 @@ def _cmd_nifti_to_dicom_seg(
     seg_dataset.save_as(str(dest))
     _log(f"wrote {dest}")
     return dest
+
+
+def _cmd_landmarks_to_dicom_sr(
+    landmarks_csv: Path,
+    reference_dir: Path,
+    output_dir: Path,
+    *,
+    algorithm_name: str = "websub-tools",
+) -> Path:
+    """Write ``landmarks.sr.dcm`` (Comprehensive 3D SR) from landmarks.csv."""
+    import highdicom as hd
+    from pydicom.sr.codedict import codes
+
+    if not landmarks_csv.is_file():
+        raise FileNotFoundError(f"landmarks CSV not found: {landmarks_csv}")
+    if not reference_dir.is_dir():
+        raise FileNotFoundError(f"reference DICOM dir missing: {reference_dir}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    landmarks = _load_landmarks_csv(landmarks_csv)
+    if not landmarks:
+        raise RuntimeError(f"no landmarks in {landmarks_csv}")
+
+    source_images = _load_dicom_series(reference_dir)
+    first = source_images[0]
+    frame_of_reference_uid = str(
+        getattr(first, "FrameOfReferenceUID", "") or ""
+    )
+    if not frame_of_reference_uid:
+        raise RuntimeError(
+            "reference DICOM missing FrameOfReferenceUID; "
+            "cannot encode SCOORD3D landmarks"
+        )
+
+    algo_name = (algorithm_name or "websub-tools").strip() or "websub-tools"
+    observer_device_context = hd.sr.ObserverContext(
+        observer_type=codes.DCM.Device,
+        observer_identifying_attributes=hd.sr.DeviceObserverIdentifyingAttributes(
+            uid=hd.UID(),
+            name=algo_name,
+            manufacturer_name="SlicerWebSub",
+            model_name=algo_name,
+        ),
+    )
+    observation_context = hd.sr.ObservationContext(
+        observer_device_context=observer_device_context,
+    )
+
+    imaging_measurements = []
+    for landmark_id, name, x_mm, y_mm, z_mm in landmarks:
+        referenced_region = hd.sr.ImageRegion3D(
+            graphic_type=hd.sr.GraphicTypeValues3D.POINT,
+            graphic_data=np.array([[x_mm, y_mm, z_mm]], dtype=float),
+            frame_of_reference_uid=frame_of_reference_uid,
+        )
+        # OHIF label path: finding.text ← Finding CodeMeaning. CodeValue must
+        # fit in VR SH (≤16) so it stays in CodeValue (not LongCodeValue);
+        # CORNERSTONEFREETEXT is 19 chars and OHIF then shows "empty".
+        display_name = name if len(name) <= 64 else name[:64]
+        tracking_id = display_name
+        finding_type = hd.sr.CodedConcept(
+            value="LMARK",
+            scheme_designator="99WEBSUB",
+            meaning=display_name,
+        )
+        imaging_measurements.append(
+            hd.sr.PlanarROIMeasurementsAndQualitativeEvaluations(
+                tracking_identifier=hd.sr.TrackingIdentifier(
+                    uid=hd.UID(),
+                    identifier=tracking_id,
+                ),
+                referenced_region=referenced_region,
+                finding_type=finding_type,
+                text_evaluations=[
+                    hd.sr.TextEvaluation(
+                        name=codes.DCM.SelectedRegionDescription,
+                        value=name,
+                    )
+                ],
+            )
+        )
+
+    _log(f"building Comprehensive3DSR for {len(imaging_measurements)} landmarks")
+    measurement_report = hd.sr.MeasurementReport(
+        observation_context=observation_context,
+        procedure_reported=codes.LN.BrainMRI,
+        imaging_measurements=imaging_measurements,
+    )
+
+    sr_dataset = hd.sr.Comprehensive3DSR(
+        evidence=list(source_images),
+        content=measurement_report,
+        series_number=101,
+        series_instance_uid=hd.UID(),
+        sop_instance_uid=hd.UID(),
+        instance_number=1,
+        manufacturer="SlicerWebSub",
+        series_description=f"{algo_name} Landmarks",
+    )
+
+    dest = output_dir / "landmarks.sr.dcm"
+    if dest.exists():
+        dest.unlink()
+    sr_dataset.save_as(str(dest))
+    _log(f"wrote {dest}")
+    return dest
+
+
+def _resolve_input_file(
+    input_dir: Path, arg: Optional[str], *, preferred_names: Sequence[str]
+) -> Path:
+    if arg:
+        path = Path(arg)
+        if path.is_file():
+            return path
+        alt = input_dir / path.name
+        if alt.is_file():
+            return alt
+        raise FileNotFoundError(f"file not found: {arg}")
+    for name in preferred_names:
+        candidate = input_dir / name
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError(
+        f"none of {list(preferred_names)} found under {input_dir}"
+    )
 
 
 def _resolve_seg_nifti(input_dir: Path, seg_arg: Optional[str]) -> Path:
@@ -394,6 +619,38 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         default=None,
         help="Reference DICOM dir (default: <input>/reference)",
     )
+    p_out.add_argument(
+        "--structures-tsv",
+        default=None,
+        help="Optional structures.tsv (index/name) for SegmentLabel values",
+    )
+    p_out.add_argument(
+        "--algorithm-name",
+        default="websub-tools",
+        help="Algorithm / manufacturer model name written into the SEG",
+    )
+
+    p_sr = sub.add_parser(
+        "landmarks-to-dicom-sr",
+        help="landmarks.csv + ref DICOM → Comprehensive 3D SR",
+    )
+    p_sr.add_argument("--input", default="/data/input")
+    p_sr.add_argument("--output-dir", default="/data/output")
+    p_sr.add_argument(
+        "--landmarks",
+        default=None,
+        help="Path to landmarks.csv (default: landmarks.csv under --input)",
+    )
+    p_sr.add_argument(
+        "--reference",
+        default=None,
+        help="Reference DICOM dir (default: <input>/reference)",
+    )
+    p_sr.add_argument(
+        "--algorithm-name",
+        default="websub-tools",
+        help="Algorithm / series description prefix written into the SR",
+    )
 
     args = parser.parse_args(list(argv) if argv is not None else None)
 
@@ -409,7 +666,43 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 else input_dir / "reference"
             )
             seg = _resolve_seg_nifti(input_dir, args.seg)
-            _cmd_nifti_to_dicom_seg(seg, ref, Path(args.output_dir))
+            structures = None
+            if args.structures_tsv:
+                structures = _resolve_input_file(
+                    input_dir,
+                    args.structures_tsv,
+                    preferred_names=("structures.tsv",),
+                )
+            else:
+                candidate = input_dir / "structures.tsv"
+                if candidate.is_file():
+                    structures = candidate
+            _cmd_nifti_to_dicom_seg(
+                seg,
+                ref,
+                Path(args.output_dir),
+                structures_tsv=structures,
+                algorithm_name=args.algorithm_name,
+            )
+            return 0
+        if args.command == "landmarks-to-dicom-sr":
+            input_dir = Path(args.input)
+            ref = (
+                Path(args.reference)
+                if args.reference
+                else input_dir / "reference"
+            )
+            landmarks = _resolve_input_file(
+                input_dir,
+                args.landmarks,
+                preferred_names=("landmarks.csv",),
+            )
+            _cmd_landmarks_to_dicom_sr(
+                landmarks,
+                ref,
+                Path(args.output_dir),
+                algorithm_name=args.algorithm_name,
+            )
             return 0
         parser.error(f"unknown command {args.command!r}")
         return 2

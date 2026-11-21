@@ -49,6 +49,7 @@ from result_cache import (  # noqa: E402
     lookup_complete,
     models_dir,
     resolve_series_key,
+    series_key_from_message,
     store_complete,
 )
 from worker import (  # noqa: E402
@@ -159,6 +160,38 @@ def on_send_download_start(
     _publish_to_requester(
         ctx, message, _format_download_status_line(file_count, total_bytes)
     )
+
+
+def on_try_cache_before_download(
+    ctx: ServiceProviderContext, message: Dict[str, Any], hub_event: str
+) -> bool:
+    """Skip study download when SeriesInstanceUID already has a complete cache hit."""
+    if hub_event != "dicom-send":
+        return False
+    series_key = series_key_from_message(message)
+    if series_key is None:
+        return False
+    event = message.get("event") or {}
+    topic = (event.get("hub.topic") or "").strip()
+    target_subscriber = str(message.get("subscriber.name") or "").strip()
+    if not topic or not target_subscriber:
+        return False
+
+    options = _inference_options()
+    hit = lookup_complete(PRODUCT_NAME, series_key, MODEL_ID, options)
+    if hit is None:
+        return False
+
+    result_path = hit.output_files[0]
+    _publish_to_requester(ctx, message, "Using cached result")
+    LOGGER.info(
+        "TORCHXRAYVISION: pre-download cache hit %s series=%s",
+        hit.root,
+        series_key.value,
+    )
+    _publish_result_status(ctx, message, result_path)
+    _publish_to_requester(ctx, message, FINAL_STATUS_LINE)
+    return True
 
 
 def _resolve_input_image(input_dir: Path) -> Optional[Path]:
@@ -457,6 +490,7 @@ HANDLERS = ServiceProviderHandlers(
     on_dicom_send=on_dicom_send,
     on_nifti_send=on_nifti_send,
     on_send_download_start=on_send_download_start,
+    on_try_cache_before_download=on_try_cache_before_download,
     build_status_response=build_status_response,
 )
 

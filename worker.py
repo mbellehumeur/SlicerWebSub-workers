@@ -104,6 +104,7 @@ from hub_client import (  # noqa: E402
     hub_event_name,
     is_own_message,
     is_request_event,
+    message_subscriber_actor,
     normalize_data_type,
     request_context,
 )
@@ -162,6 +163,10 @@ class ServiceProviderHandlers:
     ] = None
     on_send_download_start: Optional[
         Callable[["ServiceProviderContext", Dict[str, Any], str], None]
+    ] = None
+    # Return True to skip download + on_*_send (e.g. SeriesInstanceUID cache hit).
+    on_try_cache_before_download: Optional[
+        Callable[["ServiceProviderContext", Dict[str, Any], str], bool]
     ] = None
     build_status_response: Optional[
         Callable[["ServiceProviderContext"], Dict[str, Any]]
@@ -234,16 +239,36 @@ class ServiceProviderContext:
         )
         return future.result(timeout=timeout)
 
-    async def publish_dicom_send(self, topic: str, file_path: str) -> Optional[int]:
-        hub_message = build_dicom_send_publish_message(topic, file_path)
+    async def publish_dicom_send(
+        self,
+        topic: str,
+        file_path: str,
+        *,
+        target_subscriber_name: Optional[str] = None,
+    ) -> Optional[int]:
+        hub_message = build_dicom_send_publish_message(
+            topic,
+            file_path,
+            target_subscriber_name=target_subscriber_name,
+        )
         job_stats.add_bytes_out_for_product(
             self.config.product_name,
             job_stats.bytes_out_from_publish_message(hub_message),
         )
         return await self.client.publish(hub_message)
 
-    async def publish_nifti_send(self, topic: str, file_path: str) -> Optional[int]:
-        hub_message = build_nifti_send_publish_message(topic, file_path)
+    async def publish_nifti_send(
+        self,
+        topic: str,
+        file_path: str,
+        *,
+        target_subscriber_name: Optional[str] = None,
+    ) -> Optional[int]:
+        hub_message = build_nifti_send_publish_message(
+            topic,
+            file_path,
+            target_subscriber_name=target_subscriber_name,
+        )
         job_stats.add_bytes_out_for_product(
             self.config.product_name,
             job_stats.bytes_out_from_publish_message(hub_message),
@@ -414,6 +439,31 @@ async def _handle_send_event(
         )
         success = False
         try:
+            if handlers.on_try_cache_before_download is not None:
+                try:
+                    cache_hit = bool(
+                        handlers.on_try_cache_before_download(
+                            ctx, message, hub_event
+                        )
+                    )
+                except Exception:
+                    LOGGER.exception(
+                        "%s: on_try_cache_before_download failed for %s id=%s",
+                        ctx.config.product_name,
+                        hub_event,
+                        message.get("id", ""),
+                    )
+                    cache_hit = False
+                if cache_hit:
+                    LOGGER.info(
+                        "%s: cache hit before download for %s id=%s",
+                        ctx.config.product_name,
+                        hub_event,
+                        message.get("id", ""),
+                    )
+                    success = True
+                    return
+
             if handlers.on_send_download_start is not None:
                 handlers.on_send_download_start(ctx, message, hub_event)
             input_dir, file_count, total_bytes = _download_send_files(
@@ -528,6 +578,20 @@ async def run(config: ServiceProviderConfig, handlers: ServiceProviderHandlers) 
             hub_event = hub_event_name(message)
 
             if hub_event in (_DICOM_SEND_EVENT, _NIFTI_SEND_EVENT):
+                # Workers publish as actor EC; ignore peer workers' result
+                # publishes so they are not treated as new inbound jobs.
+                sender_actor = message_subscriber_actor(message)
+                if sender_actor.upper() == "EC":
+                    LOGGER.info(
+                        "%s: ignoring %s from worker actor=%s id=%s "
+                        "subscriber=%s",
+                        config.product_name,
+                        hub_event,
+                        sender_actor,
+                        message.get("id", ""),
+                        message.get("subscriber.name", ""),
+                    )
+                    continue
                 await _handle_send_event(ctx, handlers, message, hub_event)
                 continue
 

@@ -1,0 +1,17 @@
+# Copy next to upstream orchid/docker-compose.yml as compose.override.yml
+# (or: docker compose -f docker-compose.yml -f this-file up --build).
+#
+# Binds Orchid durable state under the workers runtime root so the git
+# checkout of kalsiva/orchid stays free of study/DB data.
+
+services:
+  orchid:
+    ports:
+      - "8000:8000"
+      - "11112:11112"
+    volumes:
+      - /var/lib/websub-workers/orchid/data:/orchid/data
+    environment:
+      ORCHID_DATA_DIR: /orchid/data
+      # Reach demo AI apps / host adapters on the compose network or host:
+      # ORCHID_DEMO_APPS_HOST: ai-apps

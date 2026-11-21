@@ -513,10 +513,18 @@ def _run_nnunet_dental(
 
 
 def _publish_result_nifti_sync(
-    ctx: ServiceProviderContext, topic: str, result_path: Path
+    ctx: ServiceProviderContext,
+    topic: str,
+    result_path: Path,
+    *,
+    target_subscriber_name: Optional[str] = None,
 ) -> None:
     future = asyncio.run_coroutine_threadsafe(
-        ctx.publish_nifti_send(topic, str(result_path)),
+        ctx.publish_nifti_send(
+            topic,
+            str(result_path),
+            target_subscriber_name=target_subscriber_name,
+        ),
         ctx.loop,
     )
     http_status = future.result(timeout=300.0)
@@ -589,6 +597,7 @@ def on_nifti_send(
         return
 
     LOGGER.info("DENTAL_SEG: input NIfTI %s", nifti_path)
+    target_subscriber = str(message.get("subscriber.name") or "").strip() or None
     job_dir = input_dir.parent
     options = _inference_options()
     series_key = resolve_series_key(
@@ -607,7 +616,12 @@ def on_nifti_send(
         _publish_to_requester(ctx, message, "Using cached result")
         LOGGER.info("DENTAL_SEG: cache hit %s", hit.root)
         try:
-            _publish_result_nifti_sync(ctx, topic, result_path)
+            _publish_result_nifti_sync(
+                ctx,
+                topic,
+                result_path,
+                target_subscriber_name=target_subscriber,
+            )
         except Exception as exc:
             _publish_to_requester(
                 ctx, message, f"ERROR: publish nifti-send failed: {exc}"
@@ -667,7 +681,12 @@ def on_nifti_send(
 
     _publish_to_requester(ctx, message, "Publishing result…")
     try:
-        _publish_result_nifti_sync(ctx, topic, result_path)
+        _publish_result_nifti_sync(
+            ctx,
+            topic,
+            result_path,
+            target_subscriber_name=target_subscriber,
+        )
     except Exception as exc:
         _publish_to_requester(
             ctx, message, f"ERROR: publish nifti-send failed: {exc}"

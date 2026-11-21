@@ -579,7 +579,10 @@ def _run_segmentation_job_body(
         )
         _status_log("Publishing dicom-send result…")
         published = publish_dicom_send_file(
-            product_name, topic, str(output_file)
+            product_name,
+            topic,
+            str(output_file),
+            target_subscriber_name=target_subscriber or None,
         )
         if published:
             _debug_log(

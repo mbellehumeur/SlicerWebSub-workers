@@ -747,3 +747,44 @@ select:disabled {
   padding: 2rem;
   text-align: center;
 }
+
+.orchid-platform {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.orchid-platform-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.orchid-platform-sub {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.orchid-platform-sub a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.orchid-platform-sub a:hover {
+  text-decoration: underline;
+}
+
+.orchid-containers {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.orchid-platform-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--warn);
+}

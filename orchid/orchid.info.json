@@ -1,0 +1,13 @@
+{
+  "id": "orchid",
+  "product": "ORCHID",
+  "title": "Orchid",
+  "location": "independent platform + WebSub client",
+  "summary": "WebSub client for the independent Orchid radiology AI orchestration platform — DICOM in via Hub, route/analyze on Orchid, DICOM SR + findings back. Research / evaluation only; not a medical device.",
+  "githubUrl": "https://github.com/kalsiva/orchid",
+  "websiteUrl": "https://www.5cnetwork.com/orchid",
+  "hubEvent": "dicom-send",
+  "enabled": true,
+  "license": "MIT",
+  "licenseUrl": "https://github.com/kalsiva/orchid/blob/main/LICENSE"
+}

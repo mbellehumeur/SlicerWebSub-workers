@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import signal
 import subprocess
@@ -13,7 +14,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from .registry import ProductInfo, REPO_ROOT
+from .registry import ProductInfo, REPO_ROOT, load_products
+
+LOGGER = logging.getLogger("control.process_manager")
 
 DEFAULT_RUNTIME_ROOT = Path("/var/lib/websub-workers")
 STOP_WAIT_SECONDS = 5.0
@@ -220,6 +223,11 @@ def start(product: ProductInfo, hub: str = "cloud") -> WorkerStatus:
 
     current = status(product)
     if current.running:
+        meta = _load_meta(product.id)
+        meta["desired_running"] = True
+        if current.hub:
+            meta["hub"] = current.hub
+        _write_meta(product.id, meta)
         return WorkerStatus(
             product_id=product.id,
             running=True,
@@ -279,6 +287,7 @@ def start(product: ProductInfo, hub: str = "cloud") -> WorkerStatus:
         "started_at": started_at,
         "pid": proc.pid,
         "cmd": cmd,
+        "desired_running": True,
     }
     _write_meta(product.id, meta)
     _pid_path(product.id).write_text(str(proc.pid) + "\n", encoding="utf-8")
@@ -310,13 +319,23 @@ def start(product: ProductInfo, hub: str = "cloud") -> WorkerStatus:
     )
 
 
+def _set_desired_running(product_id: str, desired: bool, hub: Optional[str] = None) -> None:
+    meta = _load_meta(product_id)
+    meta["desired_running"] = bool(desired)
+    if hub:
+        meta["hub"] = hub
+    _write_meta(product_id, meta)
+
+
 def stop(product: ProductInfo) -> WorkerStatus:
     current = status(product)
     if not current.running or current.pid is None:
+        _set_desired_running(product.id, False, current.hub)
         return WorkerStatus(
             product_id=product.id,
             running=False,
             log_path=current.log_path,
+            hub=current.hub,
             error=None,
         )
 
@@ -370,6 +389,8 @@ def stop(product: ProductInfo) -> WorkerStatus:
                 pass
 
     still = _is_pid_alive(pid)
+    if not still:
+        _set_desired_running(product.id, False, current.hub)
     return WorkerStatus(
         product_id=product.id,
         running=still,
@@ -431,3 +452,48 @@ def read_log_since(product_id: str, offset: int) -> Tuple[str, int]:
             return chunk, fh.tell()
     except OSError:
         return "", offset
+
+def restore_desired_workers() -> List[WorkerStatus]:
+    """Start products marked desired_running in meta (e.g. after reboot)."""
+    results: List[WorkerStatus] = []
+    # Upgrade path: adopt currently running panel-managed workers as desired.
+    for product in load_products():
+        current = status(product)
+        if current.running and current.managed:
+            _set_desired_running(product.id, True, current.hub)
+
+    for product in load_products():
+        if not product.startable:
+            continue
+        meta = _load_meta(product.id)
+        if not meta.get("desired_running"):
+            continue
+        current = status(product)
+        if current.running:
+            LOGGER.info(
+                "restore: %s already running pid=%s",
+                product.id,
+                current.pid,
+            )
+            results.append(current)
+            continue
+        hub = str(meta.get("hub") or "cloud").strip().lower()
+        if hub not in ("local", "cloud"):
+            hub = "cloud"
+        LOGGER.info("restore: starting %s hub=%s", product.id, hub)
+        try:
+            st = start(product, hub=hub)
+        except Exception as exc:
+            LOGGER.exception("restore: failed to start %s: %s", product.id, exc)
+            st = WorkerStatus(
+                product_id=product.id,
+                running=False,
+                hub=hub,
+                error=str(exc),
+            )
+        if st.error:
+            LOGGER.warning("restore: %s error=%s", product.id, st.error)
+        else:
+            LOGGER.info("restore: %s started pid=%s", product.id, st.pid)
+        results.append(st)
+    return results
