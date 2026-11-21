@@ -980,6 +980,15 @@ def publish_dicom_send_file(product_name: str, topic: str, file_path: str) -> bo
         LOGGER.exception("publish_dicom_send_file build failed: %s", exc)
         return False
 
+    try:
+        import job_stats
+
+        job_stats.add_bytes_out_for_product(
+            key, job_stats.bytes_out_from_publish_message(message)
+        )
+    except Exception:
+        LOGGER.debug("job_stats bytes_out record failed", exc_info=True)
+
     connection.schedule_publish(message)
     return True
 
@@ -1001,6 +1010,15 @@ def publish_nifti_send_file(product_name: str, topic: str, file_path: str) -> bo
     except Exception as exc:
         LOGGER.exception("publish_nifti_send_file build failed: %s", exc)
         return False
+
+    try:
+        import job_stats
+
+        job_stats.add_bytes_out_for_product(
+            key, job_stats.bytes_out_from_publish_message(message)
+        )
+    except Exception:
+        LOGGER.debug("job_stats bytes_out record failed", exc_info=True)
 
     connection.schedule_publish(message)
     return True

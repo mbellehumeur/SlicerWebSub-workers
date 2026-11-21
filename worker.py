@@ -116,6 +116,7 @@ from provider_runtime import (  # noqa: E402
     register_connection,
     unregister_connection,
 )
+import job_stats  # noqa: E402
 
 
 @dataclass
@@ -235,10 +236,18 @@ class ServiceProviderContext:
 
     async def publish_dicom_send(self, topic: str, file_path: str) -> Optional[int]:
         hub_message = build_dicom_send_publish_message(topic, file_path)
+        job_stats.add_bytes_out_for_product(
+            self.config.product_name,
+            job_stats.bytes_out_from_publish_message(hub_message),
+        )
         return await self.client.publish(hub_message)
 
     async def publish_nifti_send(self, topic: str, file_path: str) -> Optional[int]:
         hub_message = build_nifti_send_publish_message(topic, file_path)
+        job_stats.add_bytes_out_for_product(
+            self.config.product_name,
+            job_stats.bytes_out_from_publish_message(hub_message),
+        )
         return await self.client.publish(hub_message)
 
     def write_directory_manifest(
@@ -397,12 +406,20 @@ async def _handle_send_event(
     )
 
     def _work() -> None:
+        t0 = time.monotonic()
+        job_id = job_stats.begin_job(
+            ctx.config.product_name,
+            hub_event=hub_event,
+            bytes_in=0,
+        )
+        success = False
         try:
             if handlers.on_send_download_start is not None:
                 handlers.on_send_download_start(ctx, message, hub_event)
             input_dir, file_count, total_bytes = _download_send_files(
                 message, hub_event, ctx.config.product_name
             )
+            job_stats.set_bytes_in(job_id, total_bytes)
             LOGGER.info(
                 "%s: downloaded %s files=%d bytes=%d dir=%s",
                 ctx.config.product_name,
@@ -429,12 +446,19 @@ async def _handle_send_event(
                     file_count,
                     total_bytes,
                 )
+            success = True
         except Exception:
             LOGGER.exception(
                 "%s: handler failed for %s id=%s",
                 ctx.config.product_name,
                 hub_event,
                 message.get("id", ""),
+            )
+        finally:
+            job_stats.end_job(
+                job_id,
+                wall_seconds=time.monotonic() - t0,
+                success=success,
             )
 
     await asyncio.to_thread(_work)
