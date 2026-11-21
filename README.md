@@ -21,7 +21,7 @@ Standalone Hub **workers** (evidence creators / inference products).
 
 ## WebSub workers
 
-Workers in this repository connect inference containers to the hub. A worker receives instructions to process a dataset with specific options, downloads the data (from PACS or from the viewer over the hub), runs inference, and returns results to the viewer. That lets users see results without archiving them to PACS first. Workers can run on a local machine (only the hub needs a public domain), avoiding cloud GPU leasing expenses.
+Workers in this repository connect inference containers to the hub. A worker receives instructions to process a dataset with specific options, downloads the data (from PACS or from the viewer over the hub), runs inference, and returns results to the viewer. That lets users see results without archiving them to PACS first. Workers can run on a local machine (only the hub needs a public presence), avoiding cloud GPU leasing expenses.
 
 Workers subscribe to user topics for status-request and dicom/nifti events. In the example below, Dental Segmentator sends binary results back to the user through the hub.
 
@@ -49,14 +49,11 @@ For the hub, the architecture provides a significantly reduced attack surface an
 
 After installation, the workers' outbound ports can also be locked down, allowing access to the hub and sites needed by the resource only.
 
-In theory, the hub can be cloud deployed as a serverless application. In practice, many of those low-cost offerings do not support websocket services and a docker based offering is necessary like Azure WebApps or AWS Elastic Beanstalk.
+In theory, the hub can be cloud deployed as a serverless application. In practice, many of those low-cost offerings do not support websocket services and a docker based offering is necessary like fly.io, Azure WebApps or AWS Elastic Beanstalk.
 
 For high availability deployment a hot standby configuration can be used. The “reset server” button in the hub admin portal allows testing workflow behavior during failover.
 
 The hub provides a test mock auth endpoint that assigns a user when none is provided. For public web applications that do not need user authentication but want to use the workers, the mock endpoints provide the required functionality.
-
-Since the workers are not on the internet, you will get shared keys for the auth server. The hub can use domain name certificates.
-
 
 
 ## Setup
@@ -79,16 +76,6 @@ pip install -r requirements.txt
 
 `requirements.txt` installs the in-repo Hub client (`./python_client`).
 
-## Run
-
-```bash
-# terminal A — hub
-python ../SlicerWebSub/WebSubInterface/hub/hub.py --port 2018
-
-# terminal B — worker
-python dental_segmentator/dental_segmentator.py --local
-python total_segmentator/total_segmentator.py --local
-```
 
 ### Control panel
 
